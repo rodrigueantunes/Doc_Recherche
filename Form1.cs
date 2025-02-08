@@ -33,6 +33,13 @@ namespace Doc_Recherche
             txtDebug.Clear(); // Clear previous debug messages
             txtDebug.AppendText("Début de la méthode btnRechercher_Click\r\n");
 
+            // Vérifier si la zone mots-clés est vide
+            if (string.IsNullOrWhiteSpace(txtMotsCles.Text))
+            {
+                MessageBox.Show("Veuillez saisir au moins un mot-clé pour effectuer la recherche.", "Champ obligatoire", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                return; // Arrêter l'exécution
+            }
+
             string[] dossiers = { txtDossier1.Text, txtDossier2.Text, txtDossier3.Text };
             txtDebug.AppendText($"Dossiers spécifiés : {string.Join(", ", dossiers)}\r\n");
 
@@ -127,6 +134,7 @@ namespace Doc_Recherche
             {
                 // Récupérer les fichiers du dossier courant
                 allFiles.AddRange(Directory.GetFiles(convertedDirectory, "*.*", SearchOption.TopDirectoryOnly));
+
                 // Parcourir les sous-dossiers
                 foreach (var directory in Directory.GetDirectories(convertedDirectory))
                 {
@@ -138,10 +146,9 @@ namespace Doc_Recherche
                     {
                         inaccessibleDirectories.Add(directory);
                     }
-                    catch (IOException ex)
+                    catch (IOException)
                     {
                         inaccessibleDirectories.Add(directory);
-                        MessageBox.Show($"Erreur d'accès au dossier {directory} : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
                     }
                 }
             }
@@ -149,10 +156,9 @@ namespace Doc_Recherche
             {
                 inaccessibleDirectories.Add(convertedDirectory);
             }
-            catch (IOException ex)
+            catch (IOException)
             {
                 inaccessibleDirectories.Add(convertedDirectory);
-                MessageBox.Show($"Erreur d'accès au dossier {convertedDirectory} : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
             }
 
             return allFiles;
@@ -219,9 +225,9 @@ namespace Doc_Recherche
             catch (Exception ex)
             {
                 // Utiliser this.Invoke pour accéder aux contrôles du thread UI
-                this.Invoke(new Action(() =>
-                    MessageBox.Show($"Erreur lors de la lecture du fichier {fichier} : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error)
-                ));
+                this.BeginInvoke(new Action(() =>
+                MessageBox.Show($"Le fichier {fichier} n'a pas été pris en charge", "Avertissement", MessageBoxButtons.OK, MessageBoxIcon.Warning)
+            ));
             }
         }
 
