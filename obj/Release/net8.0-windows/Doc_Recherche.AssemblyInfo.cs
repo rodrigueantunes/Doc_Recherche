@@ -14,7 +14,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("Doc_Recherche")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Release")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+115c3f79dc860eb4c69dd7961295a2c0be935cbd")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0")]
 [assembly: System.Reflection.AssemblyProductAttribute("Doc_Recherche")]
 [assembly: System.Reflection.AssemblyTitleAttribute("Doc_Recherche")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

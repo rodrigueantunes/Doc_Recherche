@@ -5,6 +5,8 @@ using System.Diagnostics;
 using System.IO;
 using System.IO.MemoryMappedFiles;
 using System.Linq;
+using System.Runtime.InteropServices;
+using System.Text;
 using System.Text.RegularExpressions;
 using System.Threading.Tasks;
 using System.Windows.Forms;
@@ -20,7 +22,6 @@ namespace Doc_Recherche
             InitializeComponent();
             lstResultats.DoubleClick += LstResultats_DoubleClick; // Ajout du gestionnaire d'événements DoubleClick
         }
-
         private void Form1_Load(object sender, EventArgs e)
         {
             // Logique à exécuter lors du chargement du formulaire
@@ -113,12 +114,89 @@ namespace Doc_Recherche
             return motsCles.Select(motCle => new Regex(motCle, regexOptions)).ToArray();
         }
 
+
+        private static IEnumerable<string> GetFilesRecursively(string rootDirectory, List<string> inaccessibleDirectories)
+        {
+            // Conversion du chemin en UNC si nécessaire
+            string convertedDirectory = ConvertToUNCPath(rootDirectory);
+            Debug.WriteLine($"Recherche dans : {convertedDirectory}");
+
+            var allFiles = new List<string>();
+
+            try
+            {
+                // Récupérer les fichiers du dossier courant
+                allFiles.AddRange(Directory.GetFiles(convertedDirectory, "*.*", SearchOption.TopDirectoryOnly));
+                // Parcourir les sous-dossiers
+                foreach (var directory in Directory.GetDirectories(convertedDirectory))
+                {
+                    try
+                    {
+                        allFiles.AddRange(GetFilesRecursively(directory, inaccessibleDirectories));
+                    }
+                    catch (UnauthorizedAccessException)
+                    {
+                        inaccessibleDirectories.Add(directory);
+                    }
+                    catch (IOException ex)
+                    {
+                        inaccessibleDirectories.Add(directory);
+                        MessageBox.Show($"Erreur d'accès au dossier {directory} : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                }
+            }
+            catch (UnauthorizedAccessException)
+            {
+                inaccessibleDirectories.Add(convertedDirectory);
+            }
+            catch (IOException ex)
+            {
+                inaccessibleDirectories.Add(convertedDirectory);
+                MessageBox.Show($"Erreur d'accès au dossier {convertedDirectory} : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
+
+            return allFiles;
+        }
+
+        private static string ConvertToUNCPath(string path)
+        {
+            // Si le chemin est déjà un chemin UNC ou s'il n'est pas absolu, le retourner directement
+            if (string.IsNullOrWhiteSpace(path) || !Path.IsPathRooted(path) || path.StartsWith(@"\\"))
+                return path;
+
+            try
+            {
+                // Extraire la lettre du lecteur (ex : "Z:")
+                string drive = path.Substring(0, 2);
+                StringBuilder sb = new StringBuilder(512);
+                int capacity = sb.Capacity;
+                int result = WNetGetConnection(drive, sb, ref capacity);
+                if (result == 0)
+                {
+                    string uncRoot = sb.ToString().TrimEnd();
+                    // Extraire le reste du chemin après "Z:\"
+                    string rest = path.Substring(3);
+                    return Path.Combine(uncRoot, rest);
+                }
+            }
+            catch (Exception ex)
+            {
+                Debug.WriteLine($"Erreur lors de la conversion en UNC : {ex.Message}");
+            }
+            return path;
+        }
+
+        [DllImport("mpr.dll", CharSet = CharSet.Auto)]
+        private static extern int WNetGetConnection(string localName, StringBuilder remoteName, ref int length);
+
         private void SearchKeywordsInFile(string fichier, Regex[] compiledKeywords, ConcurrentBag<string> fichiersTrouvesConcurrent)
         {
             try
             {
-                // Vérification si le fichier a l'extension .4gl, traiter comme un fichier texte
-                if (fichier.EndsWith(".4gl", StringComparison.OrdinalIgnoreCase) || fichier.EndsWith(".html", StringComparison.OrdinalIgnoreCase) || fichier.EndsWith(".htm", StringComparison.OrdinalIgnoreCase))
+                // Vérification si le fichier a l'extension .4gl, .html ou .htm
+                if (fichier.EndsWith(".4gl", StringComparison.OrdinalIgnoreCase) ||
+                    fichier.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
+                    fichier.EndsWith(".htm", StringComparison.OrdinalIgnoreCase))
                 {
                     using (var stream = new FileStream(fichier, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                     using (var reader = new StreamReader(stream))
@@ -134,61 +212,17 @@ namespace Doc_Recherche
                 }
                 else
                 {
-                    // Si le fichier n'est pas .4gl, .html ou .htm, ignorer ou gérer autrement
+                    // Si le fichier n'est pas pris en charge, avertir l'utilisateur
                     MessageBox.Show($"Le fichier {fichier} n'a pas été pris en charge", "Avertissement", MessageBoxButtons.OK, MessageBoxIcon.Warning);
                 }
             }
             catch (Exception ex)
             {
-                Invoke(new Action(() => MessageBox.Show($"Erreur lors de la lecture du fichier {fichier} : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error)));
+                // Utiliser this.Invoke pour accéder aux contrôles du thread UI
+                this.Invoke(new Action(() =>
+                    MessageBox.Show($"Erreur lors de la lecture du fichier {fichier} : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error)
+                ));
             }
-        }
-    
-
-        private static IEnumerable<string> GetFilesRecursively(string rootDirectory, List<string> inaccessibleDirectories)
-        {
-            var allFiles = new ConcurrentBag<string>();
-
-            try
-            {
-                // Ajouter les fichiers du dossier courant
-                foreach (var file in Directory.GetFiles(rootDirectory, "*.*", SearchOption.TopDirectoryOnly))
-                {
-                    allFiles.Add(file);
-                }
-
-                // Parcourir les sous-dossiers
-                Parallel.ForEach(Directory.GetDirectories(rootDirectory), directory =>
-                {
-                    try
-                    {
-                        foreach (var file in GetFilesRecursively(directory, inaccessibleDirectories))
-                        {
-                            allFiles.Add(file);
-                        }
-                    }
-                    catch (UnauthorizedAccessException)
-                    {
-                        inaccessibleDirectories.Add(directory);
-                    }
-                    catch (IOException ex)
-                    {
-                        inaccessibleDirectories.Add(directory);
-                        MessageBox.Show($"Erreur d'accès au dossier {directory} : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                });
-            }
-            catch (UnauthorizedAccessException)
-            {
-                inaccessibleDirectories.Add(rootDirectory);
-            }
-            catch (IOException ex)
-            {
-                inaccessibleDirectories.Add(rootDirectory);
-                MessageBox.Show($"Erreur d'accès au dossier {rootDirectory} : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
-            }
-
-            return allFiles;
         }
 
         private void textBox1_TextChanged(object sender, EventArgs e)
@@ -212,7 +246,7 @@ namespace Doc_Recherche
             {
                 string selectedFile = lstResultats.SelectedItem?.ToString() ?? string.Empty;
                 txtDebug.AppendText($"Fichier sélectionné : {selectedFile}\r\n");
-                // Ajoutez ici toute autre logique que vous souhaitez exécuter lorsque l'utilisateur sélectionne un fichier
+                // Ajoutez ici toute autre logique souhaitée lors de la sélection d'un fichier
             }
         }
 
