@@ -1,0 +1,16 @@
+C:\Application\Doc_Recherche\Doc_Recherche\bin\Debug\net8.0-windows\Doc_Recherche.exe
+C:\Application\Doc_Recherche\Doc_Recherche\bin\Debug\net8.0-windows\Doc_Recherche.deps.json
+C:\Application\Doc_Recherche\Doc_Recherche\bin\Debug\net8.0-windows\Doc_Recherche.runtimeconfig.json
+C:\Application\Doc_Recherche\Doc_Recherche\bin\Debug\net8.0-windows\Doc_Recherche.dll
+C:\Application\Doc_Recherche\Doc_Recherche\bin\Debug\net8.0-windows\Doc_Recherche.pdb
+C:\Application\Doc_Recherche\Doc_Recherche\obj\Debug\net8.0-windows\Doc_Recherche.Form1.resources
+C:\Application\Doc_Recherche\Doc_Recherche\obj\Debug\net8.0-windows\Doc_Recherche.csproj.GenerateResource.cache
+C:\Application\Doc_Recherche\Doc_Recherche\obj\Debug\net8.0-windows\Doc_Recherche.GeneratedMSBuildEditorConfig.editorconfig
+C:\Application\Doc_Recherche\Doc_Recherche\obj\Debug\net8.0-windows\Doc_Recherche.AssemblyInfoInputs.cache
+C:\Application\Doc_Recherche\Doc_Recherche\obj\Debug\net8.0-windows\Doc_Recherche.AssemblyInfo.cs
+C:\Application\Doc_Recherche\Doc_Recherche\obj\Debug\net8.0-windows\Doc_Recherche.csproj.CoreCompileInputs.cache
+C:\Application\Doc_Recherche\Doc_Recherche\obj\Debug\net8.0-windows\Doc_Recherche.dll
+C:\Application\Doc_Recherche\Doc_Recherche\obj\Debug\net8.0-windows\refint\Doc_Recherche.dll
+C:\Application\Doc_Recherche\Doc_Recherche\obj\Debug\net8.0-windows\Doc_Recherche.pdb
+C:\Application\Doc_Recherche\Doc_Recherche\obj\Debug\net8.0-windows\Doc_Recherche.genruntimeconfig.cache
+C:\Application\Doc_Recherche\Doc_Recherche\obj\Debug\net8.0-windows\ref\Doc_Recherche.dll

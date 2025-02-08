@@ -1,8 +1,12 @@
 using System;
+using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
+using System.IO.MemoryMappedFiles;
 using System.Linq;
 using System.Text.RegularExpressions;
+using System.Threading.Tasks;
 using System.Windows.Forms;
 
 namespace Doc_Recherche
@@ -14,9 +18,16 @@ namespace Doc_Recherche
         public Form1()
         {
             InitializeComponent();
+            lstResultats.DoubleClick += LstResultats_DoubleClick; // Ajout du gestionnaire d'événements DoubleClick
         }
 
-        private void btnRechercher_Click(object sender, EventArgs e)
+        private void Form1_Load(object sender, EventArgs e)
+        {
+            // Logique à exécuter lors du chargement du formulaire
+            txtDebug.AppendText("Formulaire chargé avec succès.\r\n");
+        }
+
+        private async void btnRechercher_Click(object sender, EventArgs e)
         {
             txtDebug.Clear(); // Clear previous debug messages
             txtDebug.AppendText("Début de la méthode btnRechercher_Click\r\n");
@@ -33,105 +44,151 @@ namespace Doc_Recherche
             lstResultats.Items.Clear(); // Clear previous results
             allResults.Clear(); // Clear previous full results
 
-            List<string> fichiersTrouves = new List<string>();
+            ConcurrentBag<string> fichiersTrouves = new ConcurrentBag<string>();
+            List<string> inaccessibleDirectories = new List<string>();
 
-            foreach (string dossier in dossiers)
+            progressBarRecherche.Value = 0;
+            labelPourcentage.Text = "0%";
+
+            await Task.Run(() => SearchFiles(dossiers, fichiersTrouves, inaccessibleDirectories));
+
+            if (inaccessibleDirectories.Any())
             {
-                if (Directory.Exists(dossier))
-                {
-                    List<string> inaccessibleDirectories = new List<string>();
-                    string[] fichiers = GetFilesRecursively(dossier, inaccessibleDirectories)
-                                        .Where(f => f.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
-                                                    f.EndsWith(".htm", StringComparison.OrdinalIgnoreCase) ||
-                                                    f.EndsWith(".4gl", StringComparison.OrdinalIgnoreCase))
-                                        .ToArray();
-
-                    txtDebug.AppendText($"Nombre de fichiers trouvés dans {dossier} : {fichiers.Length}\r\n");
-
-                    fichiersTrouves.AddRange(fichiers);
-
-                    if (inaccessibleDirectories.Any())
-                    {
-                        string message = "Les dossiers suivants n'ont pas pu être accédés :\n" + string.Join("\n", inaccessibleDirectories);
-                        MessageBox.Show(message, "Avertissement", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                    }
-                }
-                else
-                {
-                    txtDebug.AppendText($"Le dossier spécifié n'existe pas : {dossier}\r\n");
-                }
+                string message = "Les dossiers suivants n'ont pas pu être accédés :\n" + string.Join("\n", inaccessibleDirectories);
+                MessageBox.Show(message, "Avertissement", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
 
-            // Recherche séquentielle des mots-clés
-            foreach (string motCle in motsCles)
-            {
-                List<string> fichiersTemp = new List<string>();
+            var regexOptions = RegexOptions.IgnoreCase | RegexOptions.Compiled;
+            var compiledKeywords = CompileKeywords(motsCles, regexOptions);
 
-                foreach (string fichier in fichiersTrouves)
-                {
-                    try
-                    {
-                        string contenu = File.ReadAllText(fichier);
-                        txtDebug.AppendText($"Analyse du fichier : {fichier}\r\n");
+            var fichiersTrouvesConcurrent = new ConcurrentBag<string>();
+            var tasks = fichiersTrouves.Select(fichier => Task.Run(() => SearchKeywordsInFile(fichier, compiledKeywords, fichiersTrouvesConcurrent))).ToArray();
 
-                        bool contientMotCle = Regex.IsMatch(contenu, motCle, RegexOptions.IgnoreCase);
-                        txtDebug.AppendText($"Recherche du mot-clé '{motCle}' : {(contientMotCle ? "trouvé" : "non trouvé")}\r\n");
-
-                        if (contientMotCle)
-                        {
-                            fichiersTemp.Add(fichier);
-                        }
-                    }
-                    catch (Exception ex)
-                    {
-                        MessageBox.Show($"Erreur lors de la lecture du fichier {fichier} : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
-                    }
-                }
-
-                fichiersTrouves = fichiersTemp;
-
-                if (!fichiersTrouves.Any())
-                {
-                    break; // Si aucun fichier ne correspond, arrêter la recherche
-                }
-            }
+            await Task.WhenAll(tasks);
 
             // Ajouter les fichiers trouvés à la liste des résultats
-            foreach (string fichier in fichiersTrouves)
+            foreach (string fichier in fichiersTrouvesConcurrent)
             {
                 lstResultats.Items.Add(fichier);
                 allResults.Add(fichier);
             }
+            progressBarRecherche.Value = 100;
+            labelPourcentage.Text = "100%";
         }
 
-        private static string[] GetFilesRecursively(string rootDirectory, List<string> inaccessibleDirectories)
+        private static void SearchFiles(string[] dossiers, ConcurrentBag<string> fichiersTrouves, List<string> inaccessibleDirectories)
         {
-            List<string> allFiles = new List<string>();
+            Parallel.ForEach(dossiers, dossier =>
+            {
+                if (Directory.Exists(dossier))
+                {
+                    try
+                    {
+                        foreach (var fichier in GetFilesRecursively(dossier, inaccessibleDirectories))
+                        {
+                            if (fichier.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
+                                fichier.EndsWith(".htm", StringComparison.OrdinalIgnoreCase) ||
+                                fichier.EndsWith(".4gl", StringComparison.OrdinalIgnoreCase))
+                            {
+                                fichiersTrouves.Add(fichier);
+                            }
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        // Log error
+                        Console.WriteLine($"Erreur lors de l'accès au dossier {dossier} : {ex.Message}");
+                    }
+                }
+                else
+                {
+                    // Log error
+                    Console.WriteLine($"Le dossier spécifié n'existe pas : {dossier}");
+                }
+            });
+        }
+
+        private static Regex[] CompileKeywords(string[] motsCles, RegexOptions regexOptions)
+        {
+            return motsCles.Select(motCle => new Regex(motCle, regexOptions)).ToArray();
+        }
+
+        private void SearchKeywordsInFile(string fichier, Regex[] compiledKeywords, ConcurrentBag<string> fichiersTrouvesConcurrent)
+        {
+            try
+            {
+                // Vérification si le fichier a l'extension .4gl, traiter comme un fichier texte
+                if (fichier.EndsWith(".4gl", StringComparison.OrdinalIgnoreCase) || fichier.EndsWith(".html", StringComparison.OrdinalIgnoreCase) || fichier.EndsWith(".htm", StringComparison.OrdinalIgnoreCase))
+                {
+                    using (var stream = new FileStream(fichier, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                    using (var reader = new StreamReader(stream))
+                    {
+                        string contenu = reader.ReadToEnd();
+                        bool contientTousMotsCles = compiledKeywords.All(regex => regex.IsMatch(contenu));
+
+                        if (contientTousMotsCles)
+                        {
+                            fichiersTrouvesConcurrent.Add(fichier);
+                        }
+                    }
+                }
+                else
+                {
+                    // Si le fichier n'est pas .4gl, .html ou .htm, ignorer ou gérer autrement
+                    MessageBox.Show($"Le fichier {fichier} n'a pas été pris en charge", "Avertissement", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+            }
+            catch (Exception ex)
+            {
+                Invoke(new Action(() => MessageBox.Show($"Erreur lors de la lecture du fichier {fichier} : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error)));
+            }
+        }
+    
+
+        private static IEnumerable<string> GetFilesRecursively(string rootDirectory, List<string> inaccessibleDirectories)
+        {
+            var allFiles = new ConcurrentBag<string>();
 
             try
             {
                 // Ajouter les fichiers du dossier courant
-                allFiles.AddRange(Directory.GetFiles(rootDirectory, "*.*", SearchOption.TopDirectoryOnly));
+                foreach (var file in Directory.GetFiles(rootDirectory, "*.*", SearchOption.TopDirectoryOnly))
+                {
+                    allFiles.Add(file);
+                }
 
                 // Parcourir les sous-dossiers
-                foreach (string directory in Directory.GetDirectories(rootDirectory))
+                Parallel.ForEach(Directory.GetDirectories(rootDirectory), directory =>
                 {
                     try
                     {
-                        allFiles.AddRange(GetFilesRecursively(directory, inaccessibleDirectories));
+                        foreach (var file in GetFilesRecursively(directory, inaccessibleDirectories))
+                        {
+                            allFiles.Add(file);
+                        }
                     }
                     catch (UnauthorizedAccessException)
                     {
                         inaccessibleDirectories.Add(directory);
                     }
-                }
+                    catch (IOException ex)
+                    {
+                        inaccessibleDirectories.Add(directory);
+                        MessageBox.Show($"Erreur d'accès au dossier {directory} : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    }
+                });
             }
             catch (UnauthorizedAccessException)
             {
                 inaccessibleDirectories.Add(rootDirectory);
             }
+            catch (IOException ex)
+            {
+                inaccessibleDirectories.Add(rootDirectory);
+                MessageBox.Show($"Erreur d'accès au dossier {rootDirectory} : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
+            }
 
-            return allFiles.ToArray();
+            return allFiles;
         }
 
         private void textBox1_TextChanged(object sender, EventArgs e)
@@ -153,9 +210,24 @@ namespace Doc_Recherche
             // Logique pour gérer la sélection d'un élément dans lstResultats
             if (lstResultats.SelectedItem != null)
             {
-                string selectedFile = lstResultats.SelectedItem.ToString();
+                string selectedFile = lstResultats.SelectedItem?.ToString() ?? string.Empty;
                 txtDebug.AppendText($"Fichier sélectionné : {selectedFile}\r\n");
                 // Ajoutez ici toute autre logique que vous souhaitez exécuter lorsque l'utilisateur sélectionne un fichier
+            }
+        }
+
+        private void LstResultats_DoubleClick(object? sender, EventArgs e)
+        {
+            if (lstResultats.SelectedItem is string selectedFile && !string.IsNullOrEmpty(selectedFile))
+            {
+                try
+                {
+                    Process.Start(new ProcessStartInfo(selectedFile) { UseShellExecute = true });
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Erreur lors de l'ouverture du fichier {selectedFile} : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
         }
     }
