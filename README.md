@@ -17,9 +17,8 @@ Ce programme permet de rechercher des fichiers dans plusieurs dossiers et sous-d
 
 ## Installation
 
-1. Clonez le repository ou téléchargez les fichiers sources.
-2. Ouvrez le projet dans Visual Studio.
-3. Compilez et exécutez le programme.
+1. Téléchargez la dernière Release
+2. Exécutez le programme.
 
 ## Prérequis
 
