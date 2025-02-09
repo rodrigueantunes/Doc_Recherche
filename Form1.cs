@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
+using System.ComponentModel;
 using System.Diagnostics;
 using System.IO;
 using System.IO.MemoryMappedFiles;
@@ -20,37 +21,63 @@ namespace Doc_Recherche
         public Form1()
         {
             InitializeComponent();
+            lblStatus = new Label
+            {
+                AutoSize = true,
+                Location = new Point(10, 150), // Ajuste selon ton interface
+                ForeColor = Color.Blue,
+                Visible = false
+            };
+            Controls.Add(lblStatus);
+            bindingSource.DataSource = allResults;
+            lstResultats.DataSource = bindingSource;
             lstResultats.DoubleClick += LstResultats_DoubleClick; // Ajout du gestionnaire d'événements DoubleClick
+            lstResultats.MouseDown += LstResultats_RightClick;
+            BtnOuvrirDossier.Click += BtnOuvrirDossier_Click;
+            txtMotsCles.TextChanged += txtMotsCles_TextChanged;
+            txtDossier1.TextChanged += txtDossier1_TextChanged;
+
         }
         private void Form1_Load(object sender, EventArgs e)
         {
+
+            txtDebug.Clear();
             // Logique à exécuter lors du chargement du formulaire
             txtDebug.AppendText("Formulaire chargé avec succès.\r\n");
         }
 
         private async void btnRechercher_Click(object sender, EventArgs e)
         {
-            txtDebug.Clear(); // Clear previous debug messages
-            txtDebug.AppendText("Début de la méthode btnRechercher_Click\r\n");
+            Cursor = Cursors.WaitCursor; // Changer le curseur en mode "chargement"
+            await Task.Delay(100); // Petite pause pour forcer l'UI à se mettre à jour
 
-            // Vérifier si la zone mots-clés est vide
-            if (string.IsNullOrWhiteSpace(txtMotsCles.Text))
-            {
-                MessageBox.Show("Veuillez saisir au moins un mot-clé pour effectuer la recherche.", "Champ obligatoire", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                return; // Arrêter l'exécution
-            }
+            btnRechercher.Text = "Recherche en cours...";
+            btnRechercher.Enabled = false;
+
+            txtMotsCles.Enabled = false;
+            txtDossier1.Enabled = false;
+            txtDossier2.Enabled = false;
+            txtDossier3.Enabled = false;
+
+            lblStatus.Text = "Recherche en cours...";
+            lblStatus.ForeColor = Color.Blue;
+            lblStatus.Visible = true;
+
+            txtDebug.Clear();
+            txtDebug.AppendText("Début de la Recherche\r\n");
+
 
             string[] dossiers = { txtDossier1.Text, txtDossier2.Text, txtDossier3.Text };
             txtDebug.AppendText($"Dossiers spécifiés : {string.Join(", ", dossiers)}\r\n");
 
             string[] motsCles = txtMotsCles.Text.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
                                                  .Select(m => m.Trim())
-                                                 .Select(m => Regex.Escape(m)) // Échapper les caractères spéciaux
+                                                 .Select(m => Regex.Escape(m))
                                                  .ToArray();
             txtDebug.AppendText($"Mots-clés spécifiés : {string.Join(", ", motsCles)}\r\n");
 
-            lstResultats.Items.Clear(); // Clear previous results
-            allResults.Clear(); // Clear previous full results
+            lstResultats.DataSource = null;
+            allResults.Clear();
 
             ConcurrentBag<string> fichiersTrouves = new ConcurrentBag<string>();
             List<string> inaccessibleDirectories = new List<string>();
@@ -58,7 +85,7 @@ namespace Doc_Recherche
             progressBarRecherche.Value = 0;
             labelPourcentage.Text = "0%";
 
-            await Task.Run(() => SearchFiles(dossiers, fichiersTrouves, inaccessibleDirectories));
+            await Task.Run(() => SearchFiles(dossiers, fichiersTrouves, inaccessibleDirectories, this));
 
             if (inaccessibleDirectories.Any())
             {
@@ -74,47 +101,105 @@ namespace Doc_Recherche
 
             await Task.WhenAll(tasks);
 
-            // Ajouter les fichiers trouvés à la liste des résultats
             foreach (string fichier in fichiersTrouvesConcurrent)
             {
-                lstResultats.Items.Add(fichier);
                 allResults.Add(fichier);
             }
+
+            lstResultats.DataSource = allResults;
             progressBarRecherche.Value = 100;
             labelPourcentage.Text = "100%";
+
+            lblStatus.Text = "Recherche terminée !";
+            lblStatus.ForeColor = Color.Green;
+
+            btnRechercher.Text = "Rechercher";
+            btnRechercher.Enabled = true;
+
+            txtMotsCles.Enabled = true;
+            txtDossier1.Enabled = true;
+            txtDossier2.Enabled = true;
+            txtDossier3.Enabled = true;
+
+            if (BtnOuvrirDossier.InvokeRequired)
+            {
+                BtnOuvrirDossier.Invoke(new Action(() => BtnOuvrirDossier.Enabled = true));
+            }
+            else
+            {
+                BtnOuvrirDossier.Enabled = true;
+            }
+
+            Cursor = Cursors.Default;
         }
 
-        private static void SearchFiles(string[] dossiers, ConcurrentBag<string> fichiersTrouves, List<string> inaccessibleDirectories)
+
+
+
+        private static void SearchFiles(string[] dossiers, ConcurrentBag<string> fichiersTrouves, List<string> inaccessibleDirectories, Form1 form)
         {
+            int totalFiles = 0;
+            int processedFiles = 0;
+
+            // Compter le nombre total de fichiers à traiter
+            foreach (var dossier in dossiers)
+            {
+                if (Directory.Exists(dossier))
+                {
+                    try
+                    {
+                        totalFiles += GetFilesRecursively(dossier, inaccessibleDirectories).Count();
+                    }
+                    catch (Exception)
+                    {
+                        inaccessibleDirectories.Add(dossier);
+                    }
+                }
+            }
+
+            // Recherche des fichiers dans les dossiers
             Parallel.ForEach(dossiers, dossier =>
             {
                 if (Directory.Exists(dossier))
                 {
                     try
                     {
-                        foreach (var fichier in GetFilesRecursively(dossier, inaccessibleDirectories))
+                        var files = GetFilesRecursively(dossier, inaccessibleDirectories).ToList();
+                        foreach (var fichier in files)
                         {
+                            // Ajouter le fichier à la liste des résultats si c'est un fichier valide
                             if (fichier.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
                                 fichier.EndsWith(".htm", StringComparison.OrdinalIgnoreCase) ||
                                 fichier.EndsWith(".4gl", StringComparison.OrdinalIgnoreCase))
                             {
                                 fichiersTrouves.Add(fichier);
                             }
+
+                            // Mettre à jour la progression
+                            processedFiles++;
+                            form.UpdateProgress(processedFiles, totalFiles); // Appel à la méthode d'instance
                         }
                     }
-                    catch (Exception ex)
+                    catch (Exception)
                     {
-                        // Log error
-                        Console.WriteLine($"Erreur lors de l'accès au dossier {dossier} : {ex.Message}");
+                        inaccessibleDirectories.Add(dossier);
                     }
-                }
-                else
-                {
-                    // Log error
-                    Console.WriteLine($"Le dossier spécifié n'existe pas : {dossier}");
                 }
             });
         }
+
+
+        public void UpdateProgress(int processedFiles, int totalFiles)
+        {
+            int progress = (int)((processedFiles / (float)totalFiles) * 100);
+
+            progressBarRecherche.Invoke(new Action(() =>
+            {
+                progressBarRecherche.Value = progress;
+                labelPourcentage.Text = $"{progress}%";
+            }));
+        }
+
 
         private static Regex[] CompileKeywords(string[] motsCles, RegexOptions regexOptions)
         {
@@ -199,7 +284,6 @@ namespace Doc_Recherche
         {
             try
             {
-                // Vérification si le fichier a l'extension .4gl, .html ou .htm
                 if (fichier.EndsWith(".4gl", StringComparison.OrdinalIgnoreCase) ||
                     fichier.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
                     fichier.EndsWith(".htm", StringComparison.OrdinalIgnoreCase))
@@ -216,18 +300,17 @@ namespace Doc_Recherche
                         }
                     }
                 }
-                else
-                {
-                    // Si le fichier n'est pas pris en charge, avertir l'utilisateur
-                    MessageBox.Show($"Le fichier {fichier} n'a pas été pris en charge", "Avertissement", MessageBoxButtons.OK, MessageBoxIcon.Warning);
-                }
             }
             catch (Exception ex)
             {
-                // Utiliser this.Invoke pour accéder aux contrôles du thread UI
-                this.BeginInvoke(new Action(() =>
-                MessageBox.Show($"Le fichier {fichier} n'a pas été pris en charge", "Avertissement", MessageBoxButtons.OK, MessageBoxIcon.Warning)
-            ));
+                if (this.InvokeRequired)
+                {
+                    this.BeginInvoke(new Action(() => txtDebug.AppendText($"Erreur lecture {fichier} : {ex.Message}\r\n")));
+                }
+                else
+                {
+                    txtDebug.AppendText($"Erreur lecture {fichier} : {ex.Message}\r\n");
+                }
             }
         }
 
@@ -236,13 +319,8 @@ namespace Doc_Recherche
             string filterText = textBox1.Text.ToLower();
             txtDebug.AppendText($"Filtrage des résultats avec le texte : {filterText}\r\n");
 
-            var filteredResults = allResults.Where(f => f.ToLower().Contains(filterText)).ToList();
-
-            lstResultats.Items.Clear();
-            foreach (var result in filteredResults)
-            {
-                lstResultats.Items.Add(result);
-            }
+            // Applique le filtrage à la BindingSource sans réaffecter DataSource
+            bindingSource.Filter = $"[NomFichier] LIKE '%{filterText}%'";
         }
 
         private void lstResultats_SelectedIndexChanged(object sender, EventArgs e)
@@ -270,5 +348,67 @@ namespace Doc_Recherche
                 }
             }
         }
+        #nullable disable
+        private void LstResultats_RightClick(object sender, MouseEventArgs e)
+        {
+            if (sender != null && sender is ListBox lst && e.Button == MouseButtons.Right && lst.SelectedItem is string selectedFile)
+            {
+                string directory = Path.GetDirectoryName(selectedFile);
+                Process.Start(new ProcessStartInfo("explorer.exe", directory ?? string.Empty));
+            }
+        }
+        private void BtnOuvrirDossier_Click(object sender, EventArgs e)
+        {
+            if (lstResultats.SelectedItem is string selectedFile && !string.IsNullOrEmpty(selectedFile))
+            {
+                string directory = Path.GetDirectoryName(selectedFile);
+
+                // Ouvrir le dossier dans l'explorateur
+                try
+                {
+                    Process.Start(new ProcessStartInfo("explorer.exe", directory));
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Erreur lors de l'ouverture du dossier {directory}: {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
+            }
+            else
+            {
+                MessageBox.Show("Veuillez sélectionner un fichier dans la liste.", "Aucune sélection", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+            }
+        }
+
+        private void button1_Click(object sender, EventArgs e)
+        {
+
+        }
+
+        private void txtMotsCles_TextChanged(object sender, EventArgs e)
+        {
+            // Vérifier si txtDossier1 et txtMotsCles ne sont pas vides ou null
+            if (string.IsNullOrWhiteSpace(txtDossier1.Text) || string.IsNullOrWhiteSpace(txtMotsCles.Text))
+            {
+                btnRechercher.Enabled = false;  // Désactiver le bouton
+            }
+            else
+            {
+                btnRechercher.Enabled = true;   // Activer le bouton
+            }
+        }
+
+        private void txtDossier1_TextChanged(object sender, EventArgs e)
+        {
+            // Vérifier si txtDossier1 et txtMotsCles ne sont pas vides ou null
+            if (string.IsNullOrWhiteSpace(txtDossier1.Text) || string.IsNullOrWhiteSpace(txtMotsCles.Text))
+            {
+                btnRechercher.Enabled = false;  // Désactiver le bouton
+            }
+            else
+            {
+                btnRechercher.Enabled = true;   // Activer le bouton
+            }
+        }
+        #nullable enable
     }
 }

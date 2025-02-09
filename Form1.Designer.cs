@@ -1,4 +1,6 @@
-﻿namespace Doc_Recherche
+﻿using System.ComponentModel;
+
+namespace Doc_Recherche
 {
     partial class Form1
     {
@@ -18,6 +20,10 @@
         private System.Windows.Forms.PictureBox pictureBox1;
         private System.Windows.Forms.ProgressBar progressBarRecherche;
         private System.Windows.Forms.Label labelPourcentage;
+        private Label lblStatus;
+        private BindingSource bindingSource = new BindingSource();
+        private Button btnOuvrirDossier;
+        private BackgroundWorker bgWorker;
 
         /// <summary>
         /// Variable nécessaire au concepteur.
@@ -48,6 +54,7 @@
             pictureBox1 = new PictureBox();
             progressBarRecherche = new ProgressBar();
             labelPourcentage = new Label();
+            BtnOuvrirDossier = new Button();
             ((System.ComponentModel.ISupportInitialize)pictureBox1).BeginInit();
             SuspendLayout();
             // 
@@ -92,6 +99,7 @@
             btnRechercher.TabIndex = 4;
             btnRechercher.Text = "Rechercher";
             btnRechercher.UseVisualStyleBackColor = true;
+            btnRechercher.Enabled = false;
             btnRechercher.Click += btnRechercher_Click;
             // 
             // lstResultats
@@ -191,11 +199,23 @@
             labelPourcentage.Size = new Size(0, 15);
             labelPourcentage.TabIndex = 1;
             // 
+            // BtnOuvrirDossier
+            // 
+            BtnOuvrirDossier.Location = new Point(935, 128);
+            BtnOuvrirDossier.Name = "BtnOuvrirDossier";
+            BtnOuvrirDossier.Size = new Size(99, 27);
+            BtnOuvrirDossier.TabIndex = 13;
+            BtnOuvrirDossier.Text = "Ouvrir Dossier";
+            BtnOuvrirDossier.UseVisualStyleBackColor = true;
+            BtnOuvrirDossier.Click += BtnOuvrirDossier_Click;
+            BtnOuvrirDossier.Enabled = false;
+            // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1241, 749);
+            Controls.Add(BtnOuvrirDossier);
             Controls.Add(labelPourcentage);
             Controls.Add(progressBarRecherche);
             Controls.Add(pictureBox1);
@@ -219,5 +239,7 @@
             ResumeLayout(false);
             PerformLayout();
         }
+
+        private Button BtnOuvrirDossier;
     }
 }
