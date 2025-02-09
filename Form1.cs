@@ -150,7 +150,7 @@ namespace Doc_Recherche
 
 
 
-        private static void SearchFiles(string[] dossiers, ConcurrentBag<string> fichiersTrouves, List<string> inaccessibleDirectories, Form1 form)
+        private async Task SearchFiles(string[] dossiers, ConcurrentBag<string> fichiersTrouves, List<string> inaccessibleDirectories, Form1 form)
         {
             int totalFiles = 0;
             int processedFiles = 0;
@@ -172,7 +172,7 @@ namespace Doc_Recherche
             }
 
             // Recherche des fichiers dans les dossiers
-            Parallel.ForEach(dossiers, dossier =>
+            var tasks = dossiers.Select(dossier => Task.Run(() =>
             {
                 if (Directory.Exists(dossier))
                 {
@@ -181,7 +181,7 @@ namespace Doc_Recherche
                         var files = GetFilesRecursively(dossier, inaccessibleDirectories).ToList();
                         foreach (var fichier in files)
                         {
-                            // Ajouter le fichier à la liste des résultats si c'est un fichier valide
+                            // Filtrage des fichiers dès le début
                             if (fichier.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
                                 fichier.EndsWith(".htm", StringComparison.OrdinalIgnoreCase) ||
                                 fichier.EndsWith(".4gl", StringComparison.OrdinalIgnoreCase))
@@ -189,9 +189,13 @@ namespace Doc_Recherche
                                 fichiersTrouves.Add(fichier);
                             }
 
-                            // Mettre à jour la progression
                             processedFiles++;
-                            form.UpdateProgress(processedFiles, totalFiles); // Appel à la méthode d'instance
+
+                            // Mettre à jour la progression tous les 100 fichiers traités
+                            if (processedFiles % 100 == 0)
+                            {
+                                form.UpdateProgress(processedFiles, totalFiles);
+                            }
                         }
                     }
                     catch (Exception)
@@ -199,8 +203,14 @@ namespace Doc_Recherche
                         inaccessibleDirectories.Add(dossier);
                     }
                 }
-            });
+            })).ToArray();
+
+            await Task.WhenAll(tasks);
+
+            // Assurez-vous de mettre à jour la progression après la fin de la recherche
+            form.UpdateProgress(processedFiles, totalFiles);
         }
+
 
 
         public void UpdateProgress(int processedFiles, int totalFiles)
@@ -229,17 +239,24 @@ namespace Doc_Recherche
 
             var allFiles = new List<string>();
 
+            // Utilisation de Directory.EnumerateFiles pour charger les fichiers de manière paresseuse
             try
             {
-                // Récupérer les fichiers du dossier courant
-                allFiles.AddRange(Directory.GetFiles(convertedDirectory, "*.*", SearchOption.TopDirectoryOnly));
+                // Récupérer les fichiers du dossier courant (filtrage au niveau des extensions)
+                var files = Directory.EnumerateFiles(convertedDirectory, "*.*", SearchOption.TopDirectoryOnly)
+                                     .Where(f => f.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
+                                                f.EndsWith(".htm", StringComparison.OrdinalIgnoreCase) ||
+                                                f.EndsWith(".4gl", StringComparison.OrdinalIgnoreCase));
 
-                // Parcourir les sous-dossiers
-                foreach (var directory in Directory.GetDirectories(convertedDirectory))
+                allFiles.AddRange(files);
+
+                // Recherche dans les sous-dossiers en parallèle pour accélérer le processus
+                var directories = Directory.EnumerateDirectories(convertedDirectory);
+                Parallel.ForEach(directories, (directory) =>
                 {
                     try
                     {
-                        allFiles.AddRange(GetFilesRecursively(directory, inaccessibleDirectories));
+                        allFiles.AddRange(GetFilesRecursively(directory, inaccessibleDirectories).ToList());
                     }
                     catch (UnauthorizedAccessException)
                     {
@@ -249,7 +266,7 @@ namespace Doc_Recherche
                     {
                         inaccessibleDirectories.Add(directory);
                     }
-                }
+                });
             }
             catch (UnauthorizedAccessException)
             {
@@ -262,6 +279,8 @@ namespace Doc_Recherche
 
             return allFiles;
         }
+
+
 
         private static string ConvertToUNCPath(string path)
         {
@@ -440,7 +459,15 @@ namespace Doc_Recherche
                 MessageBox.Show("Dossier introuvable.");
             }
         }
+        private static Regex CompileKeyword(string keyword)
+        {
+            if (!keywordCache.ContainsKey(keyword))
+            {
+                keywordCache[keyword] = new Regex(keyword, RegexOptions.IgnoreCase | RegexOptions.Compiled);
+            }
 
+            return keywordCache[keyword];
+        }
 #nullable enable
     }
 }

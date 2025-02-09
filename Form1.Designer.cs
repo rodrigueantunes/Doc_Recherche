@@ -1,4 +1,5 @@
 ﻿using System.ComponentModel;
+using System.Text.RegularExpressions;
 
 namespace Doc_Recherche
 {
@@ -27,6 +28,7 @@ namespace Doc_Recherche
         private ContextMenuStrip contextMenuStrip;
         private ToolStripMenuItem menuItemOuvrirFichier;
         private ToolStripMenuItem menuItemOuvrirDossier;
+        private static Dictionary<string, Regex> keywordCache = new Dictionary<string, Regex>();
 
         /// <summary>
         /// Variable nécessaire au concepteur.
