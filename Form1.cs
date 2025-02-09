@@ -80,7 +80,6 @@ namespace Doc_Recherche
             txtDebug.Clear();
             txtDebug.AppendText("Début de la Recherche\r\n");
 
-
             string[] dossiers = { txtDossier1.Text, txtDossier2.Text, txtDossier3.Text };
             txtDebug.AppendText($"Dossiers spécifiés : {string.Join(", ", dossiers)}\r\n");
 
@@ -113,7 +112,7 @@ namespace Doc_Recherche
             var fichiersTrouvesConcurrent = new ConcurrentBag<string>();
             var tasks = fichiersTrouves.Select(fichier => Task.Run(() => SearchKeywordsInFile(fichier, compiledKeywords, fichiersTrouvesConcurrent))).ToArray();
 
-            await Task.WhenAll(tasks);
+            await Task.WhenAll(tasks);  // Lancer toutes les tâches en parallèle
 
             foreach (string fichier in fichiersTrouvesConcurrent)
             {
@@ -123,7 +122,7 @@ namespace Doc_Recherche
             lstResultats.DataSource = allResults;
             progressBarRecherche.Value = 100;
             labelPourcentage.Text = "100%";
-
+            BtnOuvrirDossier.Enabled = true;
             lblStatus.Text = "Recherche terminée !";
             lblStatus.ForeColor = Color.Green;
 
@@ -135,17 +134,9 @@ namespace Doc_Recherche
             txtDossier2.Enabled = true;
             txtDossier3.Enabled = true;
 
-            if (BtnOuvrirDossier.InvokeRequired)
-            {
-                BtnOuvrirDossier.Invoke(new Action(() => BtnOuvrirDossier.Enabled = true));
-            }
-            else
-            {
-                BtnOuvrirDossier.Enabled = true;
-            }
-
             Cursor = Cursors.Default;
         }
+
 
 
 
@@ -313,8 +304,90 @@ namespace Doc_Recherche
         [DllImport("mpr.dll", CharSet = CharSet.Auto)]
         private static extern int WNetGetConnection(string localName, StringBuilder remoteName, ref int length);
 
-        private void SearchKeywordsInFile(string fichier, Regex[] compiledKeywords, ConcurrentBag<string> fichiersTrouvesConcurrent)
+
+        private async Task SearchKeywordsInFile(object fichiersTrouves, Regex[] compiledKeywords, ConcurrentBag<string> fichiersTrouvesConcurrent)
         {
+            // Si fichiersTrouves est une collection (ex : List<string>), on passe à l'exécution normale
+            if (fichiersTrouves is IEnumerable<string> fichiersCollection)
+            {
+                var tasks = fichiersCollection.Select(fichier =>
+                    SearchKeywordsInFileOptimized(fichier, compiledKeywords, fichiersTrouvesConcurrent)
+                ).ToArray();
+
+                await Task.WhenAll(tasks);
+            }
+            // Si fichiersTrouves est un seul fichier (ex : string), on crée une collection temporaire
+            else if (fichiersTrouves is string fichier)
+            {
+                await SearchKeywordsInFileOptimized(fichier, compiledKeywords, fichiersTrouvesConcurrent);
+            }
+            else
+            {
+                // Gérer les cas où fichiersTrouves n'est ni une collection, ni un fichier unique
+                throw new ArgumentException("L'argument 'fichiersTrouves' doit être une collection ou un fichier unique.");
+            }
+        }
+
+
+        private async Task SearchKeywordsInFileOptimizedWithMemoryMapped(string fichier, Regex[] compiledKeywords, ConcurrentBag<string> fichiersTrouvesConcurrent)
+{
+    const int bufferSize = 8192; // Lecture par blocs de 8 Ko
+
+    await Task.Run(() =>
+    {
+        try
+        {
+            if (!(fichier.EndsWith(".4gl", StringComparison.OrdinalIgnoreCase) ||
+                  fichier.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
+                  fichier.EndsWith(".htm", StringComparison.OrdinalIgnoreCase)))
+                return;  // Si l'extension n'est pas valide, on quitte immédiatement
+
+            using (var mmf = MemoryMappedFile.CreateFromFile(fichier, FileMode.Open, fichier, 0, MemoryMappedFileAccess.Read))
+            using (var accessor = mmf.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read))
+            {
+                byte[] buffer = new byte[bufferSize];
+                long offset = 0;
+                StringBuilder contenuBuffer = new StringBuilder(); // Accumulation pour conserver les mots coupés
+
+                while (offset < accessor.Capacity)
+                {
+                    int bytesRead = accessor.ReadArray(offset, buffer, 0, buffer.Length);
+                    if (bytesRead == 0) break;  // Sécurité pour éviter une boucle infinie
+
+                    string chunk = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+
+                    // Gérer les mots coupés entre les blocs
+                    contenuBuffer.Append(chunk);
+                    string contenu = contenuBuffer.ToString();
+
+                    // Vérifier si tous les mots-clés sont présents
+                    if (compiledKeywords.All(regex => regex.IsMatch(contenu)))
+                    {
+                        fichiersTrouvesConcurrent.Add(fichier);
+                        break;  // On arrête dès qu'on trouve tous les mots-clés
+                    }
+
+                    // Conserver les derniers caractères du buffer pour ne pas couper un mot
+                    int overlap = 100; // On garde 100 caractères pour éviter la coupure
+                    contenuBuffer.Clear();
+                    if (chunk.Length > overlap)
+                        contenuBuffer.Append(chunk.Substring(chunk.Length - overlap));
+
+                    offset += bytesRead;
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            Debug.WriteLine($"Erreur lecture fichier {fichier} avec MemoryMappedFile : {ex.Message}");
+        }
+    });
+}
+
+
+        private async Task SearchKeywordsInFileOptimized(string fichier, Regex[] compiledKeywords, ConcurrentBag<string> fichiersTrouvesConcurrent)
+        {
+            await semaphore.WaitAsync();
             try
             {
                 if (fichier.EndsWith(".4gl", StringComparison.OrdinalIgnoreCase) ||
@@ -324,10 +397,8 @@ namespace Doc_Recherche
                     using (var stream = new FileStream(fichier, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
                     using (var reader = new StreamReader(stream))
                     {
-                        string contenu = reader.ReadToEnd();
-                        bool contientTousMotsCles = compiledKeywords.All(regex => regex.IsMatch(contenu));
-
-                        if (contientTousMotsCles)
+                        string contenu = await reader.ReadToEndAsync();
+                        if (compiledKeywords.All(regex => regex.IsMatch(contenu)))
                         {
                             fichiersTrouvesConcurrent.Add(fichier);
                         }
@@ -336,16 +407,15 @@ namespace Doc_Recherche
             }
             catch (Exception ex)
             {
-                if (this.InvokeRequired)
-                {
-                    this.BeginInvoke(new Action(() => txtDebug.AppendText($"Erreur lecture {fichier} : {ex.Message}\r\n")));
-                }
-                else
-                {
-                    txtDebug.AppendText($"Erreur lecture {fichier} : {ex.Message}\r\n");
-                }
+                Debug.WriteLine($"Erreur lecture fichier {fichier}: {ex.Message}");
+            }
+            finally
+            {
+                semaphore.Release();
             }
         }
+
+
 
         private void textBox1_TextChanged(object sender, EventArgs e)
         {
@@ -381,15 +451,13 @@ namespace Doc_Recherche
                 }
             }
         }
-        #nullable disable
-        
+#nullable disable
+
         private void BtnOuvrirDossier_Click(object sender, EventArgs e)
         {
             if (lstResultats.SelectedItem is string selectedFile && !string.IsNullOrEmpty(selectedFile))
             {
                 string directory = Path.GetDirectoryName(selectedFile);
-
-                // Ouvrir le dossier dans l'explorateur
                 try
                 {
                     Process.Start(new ProcessStartInfo("explorer.exe", directory));
@@ -435,13 +503,16 @@ namespace Doc_Recherche
         {
             // Ouvrir le fichier en fonction de l'élément sélectionné dans la ListBox
             var fichier = lstResultats.SelectedItem.ToString();
-            if (File.Exists(fichier))
+            if (lstResultats.SelectedItem is string selectedFile && !string.IsNullOrEmpty(selectedFile))
             {
-                Process.Start(fichier);  // Ouvre le fichier avec l'application par défaut
-            }
-            else
-            {
-                MessageBox.Show("Fichier introuvable.");
+                try
+                {
+                    Process.Start(new ProcessStartInfo(selectedFile) { UseShellExecute = true });
+                }
+                catch (Exception ex)
+                {
+                    MessageBox.Show($"Erreur lors de l'ouverture du fichier {selectedFile} : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                }
             }
         }
 
@@ -467,6 +538,11 @@ namespace Doc_Recherche
             }
 
             return keywordCache[keyword];
+        }
+
+        private static Regex[] CompileKeywords(string[] motsCles)
+        {
+            return motsCles.Select(motCle => new Regex(motCle, RegexOptions.IgnoreCase | RegexOptions.Compiled)).ToArray();
         }
 #nullable enable
     }
