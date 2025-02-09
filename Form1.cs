@@ -32,10 +32,24 @@ namespace Doc_Recherche
             bindingSource.DataSource = allResults;
             lstResultats.DataSource = bindingSource;
             lstResultats.DoubleClick += LstResultats_DoubleClick; // Ajout du gestionnaire d'événements DoubleClick
-            lstResultats.MouseDown += LstResultats_RightClick;
             BtnOuvrirDossier.Click += BtnOuvrirDossier_Click;
             txtMotsCles.TextChanged += txtMotsCles_TextChanged;
             txtDossier1.TextChanged += txtDossier1_TextChanged;
+            // Initialisation du ContextMenuStrip
+            contextMenuStrip = new ContextMenuStrip();
+            menuItemOuvrirFichier = new ToolStripMenuItem("Ouvrir le fichier");
+            menuItemOuvrirDossier = new ToolStripMenuItem("Ouvrir le dossier");
+
+            // Ajout des items au ContextMenuStrip
+            contextMenuStrip.Items.Add(menuItemOuvrirFichier);
+            contextMenuStrip.Items.Add(menuItemOuvrirDossier);
+
+            // Assignation du ContextMenuStrip à la ListBox
+            lstResultats.ContextMenuStrip = contextMenuStrip;
+
+            // Gestion des événements de clic sur les items du menu
+            menuItemOuvrirFichier.Click += menuItemOuvrirFichier_Click;
+            menuItemOuvrirDossier.Click += menuItemOuvrirDossier_Click;
 
         }
         private void Form1_Load(object sender, EventArgs e)
@@ -191,7 +205,7 @@ namespace Doc_Recherche
 
         public void UpdateProgress(int processedFiles, int totalFiles)
         {
-            int progress = (int)((processedFiles / (float)totalFiles) * 100);
+            int progress = (int)((processedFiles / (float)totalFiles) * 95);
 
             progressBarRecherche.Invoke(new Action(() =>
             {
@@ -349,14 +363,7 @@ namespace Doc_Recherche
             }
         }
         #nullable disable
-        private void LstResultats_RightClick(object sender, MouseEventArgs e)
-        {
-            if (sender != null && sender is ListBox lst && e.Button == MouseButtons.Right && lst.SelectedItem is string selectedFile)
-            {
-                string directory = Path.GetDirectoryName(selectedFile);
-                Process.Start(new ProcessStartInfo("explorer.exe", directory ?? string.Empty));
-            }
-        }
+        
         private void BtnOuvrirDossier_Click(object sender, EventArgs e)
         {
             if (lstResultats.SelectedItem is string selectedFile && !string.IsNullOrEmpty(selectedFile))
@@ -377,11 +384,6 @@ namespace Doc_Recherche
             {
                 MessageBox.Show("Veuillez sélectionner un fichier dans la liste.", "Aucune sélection", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
-        }
-
-        private void button1_Click(object sender, EventArgs e)
-        {
-
         }
 
         private void txtMotsCles_TextChanged(object sender, EventArgs e)
@@ -409,6 +411,36 @@ namespace Doc_Recherche
                 btnRechercher.Enabled = true;   // Activer le bouton
             }
         }
-        #nullable enable
+
+        private void menuItemOuvrirFichier_Click(object sender, EventArgs e)
+        {
+            // Ouvrir le fichier en fonction de l'élément sélectionné dans la ListBox
+            var fichier = lstResultats.SelectedItem.ToString();
+            if (File.Exists(fichier))
+            {
+                Process.Start(fichier);  // Ouvre le fichier avec l'application par défaut
+            }
+            else
+            {
+                MessageBox.Show("Fichier introuvable.");
+            }
+        }
+
+        private void menuItemOuvrirDossier_Click(object sender, EventArgs e)
+        {
+            // Ouvrir le dossier contenant le fichier
+            var fichier = lstResultats.SelectedItem.ToString();
+            var dossier = Path.GetDirectoryName(fichier);
+            if (Directory.Exists(dossier))
+            {
+                Process.Start("explorer.exe", dossier);  // Ouvre le dossier dans l'Explorateur de fichiers
+            }
+            else
+            {
+                MessageBox.Show("Dossier introuvable.");
+            }
+        }
+
+#nullable enable
     }
 }

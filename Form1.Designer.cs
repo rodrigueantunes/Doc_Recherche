@@ -24,6 +24,9 @@ namespace Doc_Recherche
         private BindingSource bindingSource = new BindingSource();
         private Button btnOuvrirDossier;
         private BackgroundWorker bgWorker;
+        private ContextMenuStrip contextMenuStrip;
+        private ToolStripMenuItem menuItemOuvrirFichier;
+        private ToolStripMenuItem menuItemOuvrirDossier;
 
         /// <summary>
         /// Variable nécessaire au concepteur.
