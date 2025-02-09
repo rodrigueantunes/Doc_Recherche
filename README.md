@@ -48,10 +48,6 @@ Le programme utilise plusieurs fonctionnalités de .NET pour rechercher des fich
 - **Gestion des erreurs** : Gestion des erreurs d'accès aux dossiers et des erreurs de lecture de fichiers via des blocs `try-catch`.
 - **Threading parallèle** : Utilisation de `Parallel.ForEach` et `Task.Run` pour effectuer la recherche de manière asynchrone et non bloquante.
 
-## Capture d'écran
-
-_(Ajouter une capture d'écran ici de l'interface utilisateur, si possible)_
-
 ## Contribution
 
 Si vous souhaitez contribuer à ce projet, veuillez suivre les étapes suivantes :
