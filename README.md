@@ -23,8 +23,7 @@ Ce programme permet de rechercher des fichiers dans plusieurs dossiers et sous-d
 ## Prérequis
 
 - .NET Framework 4.7.2 ou supérieur.
-- Visual Studio pour compiler le projet.
-- Windows pour l'exécution du programme, car il utilise `explorer.exe` pour ouvrir des dossiers.
+- Windows (10/11).
 
 ## Utilisation
 
