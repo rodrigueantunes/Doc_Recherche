@@ -31,3 +31,4 @@ C:\Application\Doc_Recherche\obj\Debug\net8.0-windows\refint\Doc_Recherche.dll
 C:\Application\Doc_Recherche\obj\Debug\net8.0-windows\Doc_Recherche.pdb
 C:\Application\Doc_Recherche\obj\Debug\net8.0-windows\Doc_Recherche.genruntimeconfig.cache
 C:\Application\Doc_Recherche\obj\Debug\net8.0-windows\ref\Doc_Recherche.dll
+C:\Application\Doc_Recherche\obj\Debug\net8.0-windows\ViewerForm.resources

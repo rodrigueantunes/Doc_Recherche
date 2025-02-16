@@ -534,38 +534,53 @@ namespace Doc_Recherche
 
 
 
-        private void textBox1_TextChanged(object sender, EventArgs e)
-        {
-            string filterText = textBox1.Text.ToLower();
-            txtDebug.AppendText($"Filtrage des résultats avec le texte : {filterText}\r\n");
-
-            // Applique le filtrage à la BindingSource sans réaffecter DataSource
-            bindingSource.Filter = $"[NomFichier] LIKE '%{filterText}%'";
-        }
-
-        private void lstResultats_SelectedIndexChanged(object sender, EventArgs e)
-        {
-            // Logique pour gérer la sélection d'un élément dans lstResultats
-            if (lstResultats.SelectedItem != null)
-            {
-                string selectedFile = lstResultats.SelectedItem?.ToString() ?? string.Empty;
-                txtDebug.AppendText($"Fichier sélectionné : {selectedFile}\r\n");
-                // Ajoutez ici toute autre logique souhaitée lors de la sélection d'un fichier
-            }
-        }
-
         private void LstResultats_DoubleClick(object? sender, EventArgs e)
         {
             if (lstResultats.SelectedItem is string selectedResult && !string.IsNullOrEmpty(selectedResult))
             {
                 try
                 {
-                    // Extraire uniquement le chemin du fichier (avant la partie "→ Ligne")
-                    string filePath = selectedResult.Split(new string[] { " → " }, StringSplitOptions.None)[0];
+                    // Extraire le chemin du fichier et les lignes
+                    string[] resultParts = selectedResult.Split(new string[] { " → " }, StringSplitOptions.None);
 
+                    // Si le format n'est pas correct (pas de partie " → "), afficher une erreur.
+                    if (resultParts.Length < 2)
+                    {
+                        MessageBox.Show("Le format de l'élément sélectionné est incorrect.", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                        return;
+                    }
+
+                    string filePath = resultParts[0];  // Le chemin du fichier
+                    List<int> lineNumbers = new List<int>();
+
+                    // Vérifier si des numéros de ligne existent dans la deuxième partie
+                    string linePart = resultParts[1]; // Partie après " → ", contenant les lignes
+                    string[] lineNumbersStr = linePart.Split(new string[] { "Ligne " }, StringSplitOptions.RemoveEmptyEntries);
+
+                    foreach (var lineStr in lineNumbersStr)
+                    {
+                        // Nettoyer la chaîne en supprimant les espaces et autres caractères indésirables, y compris les virgules
+                        string cleanedLineStr = lineStr.Trim().Replace(",", ""); // Suppression des virgules et espaces avant et après
+
+                        // Vérifier si la chaîne nettoyée est un nombre entier valide
+                        if (int.TryParse(cleanedLineStr, out int lineNumber))
+                        {
+                            lineNumbers.Add(lineNumber); // Ajouter la ligne trouvée
+                        }
+                        else
+                        {
+                            // Si une ligne n'est pas un entier valide, afficher une erreur.
+                            MessageBox.Show($"Numéro de ligne invalide : {cleanedLineStr}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                            return;
+                        }
+                    }
+
+                    // Vérifier si le fichier existe
                     if (File.Exists(filePath))
                     {
-                        Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true });
+                        // Ouvrir le fichier dans la visionneuse avec les lignes trouvées
+                        var viewerForm = new ViewerForm(filePath, lineNumbers);
+                        viewerForm.ShowDialog(); // Afficher le formulaire de visionneuse
                     }
                     else
                     {
@@ -582,6 +597,7 @@ namespace Doc_Recherche
                 MessageBox.Show("Aucun fichier sélectionné.", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
+
 #nullable disable
 
         private void BtnOuvrirDossier_Click(object sender, EventArgs e)

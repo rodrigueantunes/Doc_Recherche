@@ -126,7 +126,7 @@ namespace Doc_Recherche
             lstResultats.Name = "lstResultats";
             lstResultats.Size = new Size(1190, 364);
             lstResultats.TabIndex = 5;
-            lstResultats.SelectedIndexChanged += lstResultats_SelectedIndexChanged;
+            //lstResultats.SelectedIndexChanged += lstResultats_SelectedIndexChanged;
             // 
             // txtDebug
             // 
@@ -144,7 +144,7 @@ namespace Doc_Recherche
             textBox1.Name = "textBox1";
             textBox1.Size = new Size(1190, 23);
             textBox1.TabIndex = 7;
-            textBox1.TextChanged += textBox1_TextChanged;
+            //textBox1.TextChanged += textBox1_TextChanged;
             // 
             // label1
             // 
