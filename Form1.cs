@@ -556,16 +556,30 @@ namespace Doc_Recherche
 
         private void LstResultats_DoubleClick(object? sender, EventArgs e)
         {
-            if (lstResultats.SelectedItem is string selectedFile && !string.IsNullOrEmpty(selectedFile))
+            if (lstResultats.SelectedItem is string selectedResult && !string.IsNullOrEmpty(selectedResult))
             {
                 try
                 {
-                    Process.Start(new ProcessStartInfo(selectedFile) { UseShellExecute = true });
+                    // Extraire uniquement le chemin du fichier (avant la partie "→ Ligne")
+                    string filePath = selectedResult.Split(new string[] { " → " }, StringSplitOptions.None)[0];
+
+                    if (File.Exists(filePath))
+                    {
+                        Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true });
+                    }
+                    else
+                    {
+                        MessageBox.Show($"Le fichier {filePath} n'existe pas.", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Erreur lors de l'ouverture du fichier {selectedFile} : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show($"Erreur lors de l'ouverture du fichier : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
+            }
+            else
+            {
+                MessageBox.Show("Aucun fichier sélectionné.", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 #nullable disable
@@ -631,18 +645,30 @@ namespace Doc_Recherche
 
         private void menuItemOuvrirFichier_Click(object sender, EventArgs e)
         {
-            // Ouvrir le fichier en fonction de l'élément sélectionné dans la ListBox
-            var fichier = lstResultats.SelectedItem.ToString();
-            if (lstResultats.SelectedItem is string selectedFile && !string.IsNullOrEmpty(selectedFile))
+            if (lstResultats.SelectedItem is string selectedResult && !string.IsNullOrEmpty(selectedResult))
             {
                 try
                 {
-                    Process.Start(new ProcessStartInfo(selectedFile) { UseShellExecute = true });
+                    // Extraire uniquement le chemin du fichier (avant la partie "→ Ligne")
+                    string filePath = selectedResult.Split(new string[] { " → " }, StringSplitOptions.None)[0];
+
+                    if (File.Exists(filePath))
+                    {
+                        Process.Start(new ProcessStartInfo(filePath) { UseShellExecute = true });
+                    }
+                    else
+                    {
+                        MessageBox.Show($"Le fichier {filePath} n'existe pas.", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                    }
                 }
                 catch (Exception ex)
                 {
-                    MessageBox.Show($"Erreur lors de l'ouverture du fichier {selectedFile} : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                    MessageBox.Show($"Erreur lors de l'ouverture du fichier : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
                 }
+            }
+            else
+            {
+                MessageBox.Show("Aucun fichier sélectionné.", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
