@@ -1,4 +1,4 @@
-using System;
+Ôªøusing System;
 using System.Collections.Concurrent;
 using System.Collections.Generic;
 using System.ComponentModel;
@@ -16,8 +16,8 @@ namespace Doc_Recherche
 {
     public partial class Form1 : Form
     {
-        private List<string> allResults = new List<string>(); // Stocker les rÈsultats complets
-
+        private List<string> allResults = new List<string>(); // Stocker les r√©sultats complets
+        private ConcurrentBag<string> resultLines = new ConcurrentBag<string>();
         public Form1()
         {
             InitializeComponent();
@@ -31,7 +31,7 @@ namespace Doc_Recherche
             Controls.Add(lblStatus);
             bindingSource.DataSource = allResults;
             lstResultats.DataSource = bindingSource;
-            lstResultats.DoubleClick += LstResultats_DoubleClick; // Ajout du gestionnaire d'ÈvÈnements DoubleClick
+            lstResultats.DoubleClick += LstResultats_DoubleClick; // Ajout du gestionnaire d'√©v√©nements DoubleClick
             BtnOuvrirDossier.Click += BtnOuvrirDossier_Click;
             txtMotsCles.TextChanged += txtMotsCles_TextChanged;
             txtDossier1.TextChanged += txtDossier1_TextChanged;
@@ -44,10 +44,10 @@ namespace Doc_Recherche
             contextMenuStrip.Items.Add(menuItemOuvrirFichier);
             contextMenuStrip.Items.Add(menuItemOuvrirDossier);
 
-            // Assignation du ContextMenuStrip ‡ la ListBox
+            // Assignation du ContextMenuStrip √† la ListBox
             lstResultats.ContextMenuStrip = contextMenuStrip;
 
-            // Gestion des ÈvÈnements de clic sur les items du menu
+            // Gestion des √©v√©nements de clic sur les items du menu
             menuItemOuvrirFichier.Click += menuItemOuvrirFichier_Click;
             menuItemOuvrirDossier.Click += menuItemOuvrirDossier_Click;
 
@@ -56,88 +56,131 @@ namespace Doc_Recherche
         {
 
             txtDebug.Clear();
-            // Logique ‡ exÈcuter lors du chargement du formulaire
-            txtDebug.AppendText("Formulaire chargÈ avec succËs.\r\n");
+            // Logique √† ex√©cuter lors du chargement du formulaire
+            txtDebug.AppendText("Formulaire charg√© avec succ√®s.\r\n");
         }
-
+#nullable disable
         private async void btnRechercher_Click(object sender, EventArgs e)
         {
-            Cursor = Cursors.WaitCursor; // Changer le curseur en mode "chargement"
-            await Task.Delay(100); // Petite pause pour forcer l'UI ‡ se mettre ‡ jour
-
-            btnRechercher.Text = "Recherche en cours...";
-            btnRechercher.Enabled = false;
-
-            txtMotsCles.Enabled = false;
-            txtDossier1.Enabled = false;
-            txtDossier2.Enabled = false;
-            txtDossier3.Enabled = false;
-
-            lblStatus.Text = "Recherche en cours...";
-            lblStatus.ForeColor = Color.Blue;
-            lblStatus.Visible = true;
-
-            txtDebug.Clear();
-            txtDebug.AppendText("DÈbut de la Recherche\r\n");
-
-            string[] dossiers = { txtDossier1.Text, txtDossier2.Text, txtDossier3.Text };
-            txtDebug.AppendText($"Dossiers spÈcifiÈs : {string.Join(", ", dossiers)}\r\n");
-
-            string[] motsCles = txtMotsCles.Text.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
-                                                 .Select(m => m.Trim())
-                                                 .Select(m => Regex.Escape(m))
-                                                 .ToArray();
-            txtDebug.AppendText($"Mots-clÈs spÈcifiÈs : {string.Join(", ", motsCles)}\r\n");
-
-            lstResultats.DataSource = null;
-            allResults.Clear();
-
-            ConcurrentBag<string> fichiersTrouves = new ConcurrentBag<string>();
-            List<string> inaccessibleDirectories = new List<string>();
-
-            progressBarRecherche.Value = 0;
-            labelPourcentage.Text = "0%";
-
-            await Task.Run(() => SearchFiles(dossiers, fichiersTrouves, inaccessibleDirectories, this));
-
-            if (inaccessibleDirectories.Any())
+            try
             {
-                string message = "Les dossiers suivants n'ont pas pu Ítre accÈdÈs :\n" + string.Join("\n", inaccessibleDirectories);
-                MessageBox.Show(message, "Avertissement", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                Cursor = Cursors.WaitCursor; // Changer le curseur en mode "chargement"
+                await Task.Delay(100); // Petite pause pour forcer l'UI √† se mettre √† jour
+
+                btnRechercher.Text = "En cours...";
+                btnRechercher.Enabled = false;
+
+                txtMotsCles.Enabled = false;
+                txtDossier1.Enabled = false;
+                txtDossier2.Enabled = false;
+                txtDossier3.Enabled = false;
+                txtFichier.Enabled = false;
+                btnParcourirFichier.Enabled = false;
+                
+
+                lblStatus.Text = "Recherche en cours...";
+                lblStatus.ForeColor = Color.Blue;
+                lblStatus.Visible = true;
+
+                txtDebug.Clear();
+                txtDebug.AppendText("D√©but de la Recherche\r\n");
+
+                // Log des dossiers sp√©cifi√©s
+                string[] dossiers = { txtDossier1.Text, txtDossier2.Text, txtDossier3.Text };
+                txtDebug.AppendText($"Dossiers sp√©cifi√©s : {string.Join(", ", dossiers)}\r\n");
+
+                // Log des mots-cl√©s sp√©cifi√©s
+                string[] motsCles = txtMotsCles.Text.Split(new[] { ',' }, StringSplitOptions.RemoveEmptyEntries)
+                                                     .Select(m => m.Trim())
+                                                     .Select(m => Regex.Escape(m))
+                                                     .ToArray();
+                txtDebug.AppendText($"Mots-cl√©s sp√©cifi√©s : {string.Join(", ", motsCles)}\r\n");
+
+                lstResultats.DataSource = null;
+                allResults.Clear();
+
+                ConcurrentBag<string> fichiersTrouves = new ConcurrentBag<string>();
+                List<string> inaccessibleDirectories = new List<string>();
+
+                progressBarRecherche.Value = 0;
+                
+
+                // Log du fichier sp√©cifi√©
+                if (!string.IsNullOrEmpty(txtFichier.Text))
+                {
+                    fichiersTrouves.Add(txtFichier.Text);
+                    txtDebug.AppendText($"Fichier sp√©cifi√© : {txtFichier.Text}\r\n");
+                }
+
+                // Log de la recherche des fichiers
+                txtDebug.AppendText("D√©marrage de la recherche des fichiers...\r\n");
+                progressBarRecherche.Value = 25;
+                labelPourcentage.Text = "Avancement";
+                
+                await Task.Run(() => SearchFiles(dossiers, fichiersTrouves, inaccessibleDirectories, this));
+                
+                if (inaccessibleDirectories.Any())
+                {
+                    string message = "Les dossiers suivants n'ont pas pu √™tre acc√©d√©s :\n" + string.Join("\n", inaccessibleDirectories);
+                    MessageBox.Show(message, "Avertissement", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                }
+                // Log des mots-cl√©s compil√©s
+                txtDebug.AppendText("Compilation des mots-cl√©s...\r\n");
+                var regexOptions = RegexOptions.IgnoreCase | RegexOptions.Compiled;
+                var compiledKeywords = CompileKeywords(motsCles, regexOptions);
+                if (compiledKeywords == null || !compiledKeywords.Any())
+                {
+                    txtDebug.AppendText("Aucun mot-cl√© valide n'a √©t√© sp√©cifi√©.\r\n");
+                    MessageBox.Show("Veuillez sp√©cifier des mots-cl√©s pour la recherche.");
+                    return;
+                }
+
+                var lignesTrouvees = new ConcurrentBag<string>();
+
+                BtnOuvrirDossier.Enabled = false;
+                // Lancer les recherches dans les fichiers en parall√®le avec le SemaphoreSlim
+                txtDebug.AppendText("Lancement des recherches dans les fichiers...\r\n");
+                progressBarRecherche.Value = 50;
+                
+                var tasks = fichiersTrouves.Select(fichier =>
+                    SearchKeywordsInFileOptimized(fichier, compiledKeywords, lignesTrouvees, semaphore)).ToArray();
+
+                progressBarRecherche.Value = 75;
+                labelPourcentage.Text = "75%";
+
+                await Task.WhenAll(tasks);  // Lancer toutes les t√¢ches en parall√®le
+
+                
+
+                foreach (string resultat in lignesTrouvees)
+                {
+                    allResults.Add(resultat);
+                }
+
+                lstResultats.DataSource = allResults.ToList();
+                BtnOuvrirDossier.Enabled = true;
+                lblStatus.Text = "Recherche termin√©e !";
+                lblStatus.ForeColor = Color.Green;
+                progressBarRecherche.Value = 100;
+                labelPourcentage.Text = "100%";
+                btnRechercher.Text = "Rechercher";
+                btnRechercher.Enabled = true;
+                txtMotsCles.Enabled = true;
+                txtDossier1.Enabled = true;
+                txtDossier2.Enabled = true;
+                txtDossier3.Enabled = true;
+                txtFichier.Enabled = true;
+                btnParcourirFichier.Enabled = true;
+                Cursor = Cursors.Default;
             }
-
-            var regexOptions = RegexOptions.IgnoreCase | RegexOptions.Compiled;
-            var compiledKeywords = CompileKeywords(motsCles, regexOptions);
-
-            var fichiersTrouvesConcurrent = new ConcurrentBag<string>();
-            var tasks = fichiersTrouves.Select(fichier => Task.Run(() => SearchKeywordsInFile(fichier, compiledKeywords, fichiersTrouvesConcurrent))).ToArray();
-
-            await Task.WhenAll(tasks);  // Lancer toutes les t‚ches en parallËle
-
-            foreach (string fichier in fichiersTrouvesConcurrent)
+            catch (Exception ex)
             {
-                allResults.Add(fichier);
+                // Log l'exception ici pour comprendre l'origine de l'erreur
+                txtDebug.AppendText($"Une erreur s'est produite : {ex.Message}\r\n");
+                MessageBox.Show($"Une erreur s'est produite : {ex.Message}", "Erreur", MessageBoxButtons.OK, MessageBoxIcon.Error);
+                Cursor = Cursors.Default; // R√©initialise le curseur
             }
-
-            lstResultats.DataSource = allResults;
-            progressBarRecherche.Value = 100;
-            labelPourcentage.Text = "100%";
-            BtnOuvrirDossier.Enabled = true;
-            lblStatus.Text = "Recherche terminÈe !";
-            lblStatus.ForeColor = Color.Green;
-
-            btnRechercher.Text = "Rechercher";
-            btnRechercher.Enabled = true;
-
-            txtMotsCles.Enabled = true;
-            txtDossier1.Enabled = true;
-            txtDossier2.Enabled = true;
-            txtDossier3.Enabled = true;
-
-            Cursor = Cursors.Default;
         }
-
-
 
 
 
@@ -146,7 +189,7 @@ namespace Doc_Recherche
             int totalFiles = 0;
             int processedFiles = 0;
 
-            // Compter le nombre total de fichiers ‡ traiter
+            // Compter le nombre total de fichiers √† traiter
             foreach (var dossier in dossiers)
             {
                 if (Directory.Exists(dossier))
@@ -172,7 +215,7 @@ namespace Doc_Recherche
                         var files = GetFilesRecursively(dossier, inaccessibleDirectories).ToList();
                         foreach (var fichier in files)
                         {
-                            // Filtrage des fichiers dËs le dÈbut
+                            // Filtrage des fichiers d√®s le d√©but
                             if (fichier.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
                                 fichier.EndsWith(".htm", StringComparison.OrdinalIgnoreCase) ||
                                 fichier.EndsWith(".4gl", StringComparison.OrdinalIgnoreCase))
@@ -182,7 +225,7 @@ namespace Doc_Recherche
 
                             processedFiles++;
 
-                            // Mettre ‡ jour la progression tous les 100 fichiers traitÈs
+                            // Mettre √† jour la progression tous les 100 fichiers trait√©s
                             if (processedFiles % 100 == 0)
                             {
                                 form.UpdateProgress(processedFiles, totalFiles);
@@ -198,7 +241,7 @@ namespace Doc_Recherche
 
             await Task.WhenAll(tasks);
 
-            // Assurez-vous de mettre ‡ jour la progression aprËs la fin de la recherche
+            // Assurez-vous de mettre √† jour la progression apr√®s la fin de la recherche
             form.UpdateProgress(processedFiles, totalFiles);
         }
 
@@ -206,13 +249,32 @@ namespace Doc_Recherche
 
         public void UpdateProgress(int processedFiles, int totalFiles)
         {
-            int progress = (int)((processedFiles / (float)totalFiles) * 95);
+            if (!this.IsHandleCreated || this.IsDisposed || totalFiles == 0)
+                return;
 
-            progressBarRecherche.Invoke(new Action(() =>
+            // Calcul du pourcentage de progression
+            int progress = (int)((processedFiles / (float)totalFiles) * 100);
+
+            // Assurer que la valeur est bien dans la plage de 0 √† 100
+            progress = Math.Clamp(progress, 0, 100);
+
+            // V√©rifier si l'on est sur le thread UI, sinon utiliser Invoke
+            if (progressBarRecherche.InvokeRequired)
             {
-                progressBarRecherche.Value = progress;
-                labelPourcentage.Text = $"{progress}%";
-            }));
+                progressBarRecherche.BeginInvoke(new Action(() => UpdateProgress(processedFiles, totalFiles)));
+            }
+            else
+            {
+                try
+                {
+                    progressBarRecherche.Value = progress;
+                    labelPourcentage.Text = $"{progress}%";
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"Erreur dans UpdateProgress : {ex.Message}");
+                }
+            }
         }
 
 
@@ -224,16 +286,16 @@ namespace Doc_Recherche
 
         private static IEnumerable<string> GetFilesRecursively(string rootDirectory, List<string> inaccessibleDirectories)
         {
-            // Conversion du chemin en UNC si nÈcessaire
+            // Conversion du chemin en UNC si n√©cessaire
             string convertedDirectory = ConvertToUNCPath(rootDirectory);
             Debug.WriteLine($"Recherche dans : {convertedDirectory}");
 
             var allFiles = new List<string>();
 
-            // Utilisation de Directory.EnumerateFiles pour charger les fichiers de maniËre paresseuse
+            // Utilisation de Directory.EnumerateFiles pour charger les fichiers de mani√®re paresseuse
             try
             {
-                // RÈcupÈrer les fichiers du dossier courant (filtrage au niveau des extensions)
+                // R√©cup√©rer les fichiers du dossier courant (filtrage au niveau des extensions)
                 var files = Directory.EnumerateFiles(convertedDirectory, "*.*", SearchOption.TopDirectoryOnly)
                                      .Where(f => f.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
                                                 f.EndsWith(".htm", StringComparison.OrdinalIgnoreCase) ||
@@ -241,7 +303,7 @@ namespace Doc_Recherche
 
                 allFiles.AddRange(files);
 
-                // Recherche dans les sous-dossiers en parallËle pour accÈlÈrer le processus
+                // Recherche dans les sous-dossiers en parall√®le pour acc√©l√©rer le processus
                 var directories = Directory.EnumerateDirectories(convertedDirectory);
                 Parallel.ForEach(directories, (directory) =>
                 {
@@ -275,7 +337,7 @@ namespace Doc_Recherche
 
         private static string ConvertToUNCPath(string path)
         {
-            // Si le chemin est dÈj‡ un chemin UNC ou s'il n'est pas absolu, le retourner directement
+            // Si le chemin est d√©j√† un chemin UNC ou s'il n'est pas absolu, le retourner directement
             if (string.IsNullOrWhiteSpace(path) || !Path.IsPathRooted(path) || path.StartsWith(@"\\"))
                 return path;
 
@@ -289,7 +351,7 @@ namespace Doc_Recherche
                 if (result == 0)
                 {
                     string uncRoot = sb.ToString().TrimEnd();
-                    // Extraire le reste du chemin aprËs "Z:\"
+                    // Extraire le reste du chemin apr√®s "Z:\"
                     string rest = path.Substring(3);
                     return Path.Combine(uncRoot, rest);
                 }
@@ -305,135 +367,190 @@ namespace Doc_Recherche
         private static extern int WNetGetConnection(string localName, StringBuilder remoteName, ref int length);
 
 
-        private async Task SearchKeywordsInFile(object fichiersTrouves, Regex[] compiledKeywords, ConcurrentBag<string> fichiersTrouvesConcurrent)
+        private async Task SearchKeywordsInFile(object fichiersTrouves, Regex[] compiledKeywords, ConcurrentBag<string> lignesTrouvees)
         {
-            // Si fichiersTrouves est une collection (ex : List<string>), on passe ‡ l'exÈcution normale
+
+            // Si fichiersTrouves est une collection (ex : List<string>), on ex√©cute la recherche pour chaque fichier
             if (fichiersTrouves is IEnumerable<string> fichiersCollection)
             {
                 var tasks = fichiersCollection.Select(fichier =>
-                    SearchKeywordsInFileOptimized(fichier, compiledKeywords, fichiersTrouvesConcurrent)
+                    SearchKeywordsInFileOptimized(fichier, compiledKeywords, lignesTrouvees, semaphore)  // Passer le s√©maphore ici
                 ).ToArray();
 
                 await Task.WhenAll(tasks);
             }
-            // Si fichiersTrouves est un seul fichier (ex : string), on crÈe une collection temporaire
+            // Si fichiersTrouves est un seul fichier (ex : string), on le traite directement
             else if (fichiersTrouves is string fichier)
             {
-                await SearchKeywordsInFileOptimized(fichier, compiledKeywords, fichiersTrouvesConcurrent);
+                await SearchKeywordsInFileOptimized(fichier, compiledKeywords, lignesTrouvees, semaphore);  // Passer le s√©maphore ici
             }
             else
             {
-                // GÈrer les cas o˘ fichiersTrouves n'est ni une collection, ni un fichier unique
-                throw new ArgumentException("L'argument 'fichiersTrouves' doit Ítre une collection ou un fichier unique.");
+                // G√©rer les cas o√π fichiersTrouves est invalide
+                throw new ArgumentException("L'argument 'fichiersTrouves' doit √™tre une collection ou un fichier unique.");
             }
         }
 
+
+#nullable enable
 
         private async Task SearchKeywordsInFileOptimizedWithMemoryMapped(string fichier, Regex[] compiledKeywords, ConcurrentBag<string> fichiersTrouvesConcurrent)
-{
-    const int bufferSize = 8192; // Lecture par blocs de 8 Ko
-
-    await Task.Run(() =>
-    {
-        try
         {
-            if (!(fichier.EndsWith(".4gl", StringComparison.OrdinalIgnoreCase) ||
-                  fichier.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
-                  fichier.EndsWith(".htm", StringComparison.OrdinalIgnoreCase)))
-                return;  // Si l'extension n'est pas valide, on quitte immÈdiatement
+            const int bufferSize = 8192; // Lecture par blocs de 8 Ko
 
-            using (var mmf = MemoryMappedFile.CreateFromFile(fichier, FileMode.Open, fichier, 0, MemoryMappedFileAccess.Read))
-            using (var accessor = mmf.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read))
+            await Task.Run(() =>
             {
-                byte[] buffer = new byte[bufferSize];
-                long offset = 0;
-                StringBuilder contenuBuffer = new StringBuilder(); // Accumulation pour conserver les mots coupÈs
-
-                while (offset < accessor.Capacity)
+                try
                 {
-                    int bytesRead = accessor.ReadArray(offset, buffer, 0, buffer.Length);
-                    if (bytesRead == 0) break;  // SÈcuritÈ pour Èviter une boucle infinie
+                    if (!(fichier.EndsWith(".4gl", StringComparison.OrdinalIgnoreCase) ||
+                          fichier.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
+                          fichier.EndsWith(".htm", StringComparison.OrdinalIgnoreCase)))
+                        return;  // Si l'extension n'est pas valide, on quitte imm√©diatement
 
-                    string chunk = Encoding.UTF8.GetString(buffer, 0, bytesRead);
-
-                    // GÈrer les mots coupÈs entre les blocs
-                    contenuBuffer.Append(chunk);
-                    string contenu = contenuBuffer.ToString();
-
-                    // VÈrifier si tous les mots-clÈs sont prÈsents
-                    if (compiledKeywords.All(regex => regex.IsMatch(contenu)))
+                    using (var mmf = MemoryMappedFile.CreateFromFile(fichier, FileMode.Open, fichier, 0, MemoryMappedFileAccess.Read))
+                    using (var accessor = mmf.CreateViewAccessor(0, 0, MemoryMappedFileAccess.Read))
                     {
-                        fichiersTrouvesConcurrent.Add(fichier);
-                        break;  // On arrÍte dËs qu'on trouve tous les mots-clÈs
-                    }
+                        byte[] buffer = new byte[bufferSize];
+                        long offset = 0;
+                        StringBuilder contenuBuffer = new StringBuilder(); // Accumulation pour conserver les mots coup√©s
 
-                    // Conserver les derniers caractËres du buffer pour ne pas couper un mot
-                    int overlap = 100; // On garde 100 caractËres pour Èviter la coupure
-                    contenuBuffer.Clear();
-                    if (chunk.Length > overlap)
-                        contenuBuffer.Append(chunk.Substring(chunk.Length - overlap));
-
-                    offset += bytesRead;
-                }
-            }
-        }
-        catch (Exception ex)
-        {
-            Debug.WriteLine($"Erreur lecture fichier {fichier} avec MemoryMappedFile : {ex.Message}");
-        }
-    });
-}
-
-
-        private async Task SearchKeywordsInFileOptimized(string fichier, Regex[] compiledKeywords, ConcurrentBag<string> fichiersTrouvesConcurrent)
-        {
-            await semaphore.WaitAsync();
-            try
-            {
-                if (fichier.EndsWith(".4gl", StringComparison.OrdinalIgnoreCase) ||
-                    fichier.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
-                    fichier.EndsWith(".htm", StringComparison.OrdinalIgnoreCase))
-                {
-                    using (var stream = new FileStream(fichier, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
-                    using (var reader = new StreamReader(stream))
-                    {
-                        string contenu = await reader.ReadToEndAsync();
-                        if (compiledKeywords.All(regex => regex.IsMatch(contenu)))
+                        while (offset < accessor.Capacity)
                         {
-                            fichiersTrouvesConcurrent.Add(fichier);
+                            int bytesRead = accessor.ReadArray(offset, buffer, 0, buffer.Length);
+                            if (bytesRead == 0) break;  // S√©curit√© pour √©viter une boucle infinie
+
+                            string chunk = Encoding.UTF8.GetString(buffer, 0, bytesRead);
+
+                            // G√©rer les mots coup√©s entre les blocs
+                            contenuBuffer.Append(chunk);
+                            string contenu = contenuBuffer.ToString();
+
+                            // V√©rifier si tous les mots-cl√©s sont pr√©sents
+                            if (compiledKeywords.All(regex => regex.IsMatch(contenu)))
+                            {
+                                fichiersTrouvesConcurrent.Add(fichier);
+                                break;  // On arr√™te d√®s qu'on trouve tous les mots-cl√©s
+                            }
+
+                            // Conserver les derniers caract√®res du buffer pour ne pas couper un mot
+                            int overlap = 100; // On garde 100 caract√®res pour √©viter la coupure
+                            contenuBuffer.Clear();
+                            if (chunk.Length > overlap)
+                                contenuBuffer.Append(chunk.Substring(chunk.Length - overlap));
+
+                            offset += bytesRead;
                         }
                     }
+                }
+                catch (Exception ex)
+                {
+                    Debug.WriteLine($"Erreur lecture fichier {fichier} avec MemoryMappedFile : {ex.Message}");
+                }
+            });
+        }
+#nullable disable
+        private async Task SearchKeywordsInFileOptimized(string filePath, Regex[] compiledKeywords, ConcurrentBag<string> resultLines, SemaphoreSlim semaphore)
+        {
+            await semaphore.WaitAsync(); // Gestion de la concurrence
+            try
+            {
+                // V√©rification si le fichier existe
+                if (!File.Exists(filePath))
+                {
+                    resultLines.Add($"Fichier non trouv√© : {filePath}");
+                    return;
+                }
+
+                // Partie pour analyser le contenu du fichier (par exemple pour les fichiers HTML/4gl)
+                if (filePath.EndsWith(".4gl", StringComparison.OrdinalIgnoreCase) ||
+                    filePath.EndsWith(".html", StringComparison.OrdinalIgnoreCase) ||
+                    filePath.EndsWith(".htm", StringComparison.OrdinalIgnoreCase))
+                {
+                    try
+                    {
+                        using (var stream = new FileStream(filePath, FileMode.Open, FileAccess.Read, FileShare.ReadWrite))
+                        using (var reader = new StreamReader(stream, Encoding.UTF8)) // Encodage explicite
+                        {
+                            string contenu = await reader.ReadToEndAsync();
+                            // Ici, vous pouvez traiter 'contenu' si n√©cessaire (par exemple pour analyser le HTML, etc.)
+                        }
+                    }
+                    catch (Exception ex)
+                    {
+                        resultLines.Add($"Erreur lors de la lecture du fichier {filePath} : {ex.Message}");
+                        return; // Sortie de la m√©thode en cas d'erreur lors de la lecture du fichier
+                    }
+                }
+
+                // Partie pour analyser les lignes du fichier
+                List<int> lignesTrouvees = new List<int>();
+                int lineNumber = 0;
+
+                using (StreamReader reader = new StreamReader(filePath, Encoding.UTF8)) // Encodage explicite
+                {
+                    string line;
+                    while ((line = await reader.ReadLineAsync()) != null)
+                    {
+                        try
+                        {
+                            lineNumber++;
+
+                            // V√©rifier que la ligne est valide avant de la traiter
+                            if (string.IsNullOrWhiteSpace(line)) continue;
+
+                            // V√©rification si des mots-cl√©s sont pr√©sents dans la ligne
+                            if (compiledKeywords.Any(regex => regex.IsMatch(line)))
+                            {
+                                lignesTrouvees.Add(lineNumber);
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            resultLines.Add($"Erreur lors du traitement de la ligne {lineNumber} du fichier {filePath}: {ex.Message}");
+                            // Continuer √† analyser les lignes restantes, mais loguer l'erreur
+                        }
+                    }
+                }
+
+                // Si des lignes contenant des mots-cl√©s sont trouv√©es, ajouter au r√©sultat
+                if (lignesTrouvees.Any())
+                {
+                    string resultat = $"{filePath} ‚Üí Ligne {string.Join(", Ligne ", lignesTrouvees)}";
+                    resultLines.Add(resultat);
                 }
             }
             catch (Exception ex)
             {
-                Debug.WriteLine($"Erreur lecture fichier {fichier}: {ex.Message}");
+                resultLines.Add($"Erreur g√©n√©rale avec {filePath}: {ex.Message}");
             }
             finally
             {
-                semaphore.Release();
+                semaphore.Release(); // Lib√©ration du s√©maphore, m√™me en cas d'exception
             }
         }
+#nullable enable
+
+
 
 
 
         private void textBox1_TextChanged(object sender, EventArgs e)
         {
             string filterText = textBox1.Text.ToLower();
-            txtDebug.AppendText($"Filtrage des rÈsultats avec le texte : {filterText}\r\n");
+            txtDebug.AppendText($"Filtrage des r√©sultats avec le texte : {filterText}\r\n");
 
-            // Applique le filtrage ‡ la BindingSource sans rÈaffecter DataSource
+            // Applique le filtrage √† la BindingSource sans r√©affecter DataSource
             bindingSource.Filter = $"[NomFichier] LIKE '%{filterText}%'";
         }
 
         private void lstResultats_SelectedIndexChanged(object sender, EventArgs e)
         {
-            // Logique pour gÈrer la sÈlection d'un ÈlÈment dans lstResultats
+            // Logique pour g√©rer la s√©lection d'un √©l√©ment dans lstResultats
             if (lstResultats.SelectedItem != null)
             {
                 string selectedFile = lstResultats.SelectedItem?.ToString() ?? string.Empty;
-                txtDebug.AppendText($"Fichier sÈlectionnÈ : {selectedFile}\r\n");
-                // Ajoutez ici toute autre logique souhaitÈe lors de la sÈlection d'un fichier
+                txtDebug.AppendText($"Fichier s√©lectionn√© : {selectedFile}\r\n");
+                // Ajoutez ici toute autre logique souhait√©e lors de la s√©lection d'un fichier
             }
         }
 
@@ -469,16 +586,16 @@ namespace Doc_Recherche
             }
             else
             {
-                MessageBox.Show("Veuillez sÈlectionner un fichier dans la liste.", "Aucune sÈlection", MessageBoxButtons.OK, MessageBoxIcon.Warning);
+                MessageBox.Show("Veuillez s√©lectionner un fichier dans la liste.", "Aucune s√©lection", MessageBoxButtons.OK, MessageBoxIcon.Warning);
             }
         }
 
         private void txtMotsCles_TextChanged(object sender, EventArgs e)
         {
-            // VÈrifier si txtDossier1 et txtMotsCles ne sont pas vides ou null
-            if (string.IsNullOrWhiteSpace(txtDossier1.Text) || string.IsNullOrWhiteSpace(txtMotsCles.Text))
+            // V√©rifier si txtDossier1 et txtMotsCles ne sont pas vides ou null
+            if ((string.IsNullOrWhiteSpace(txtDossier1.Text) && string.IsNullOrWhiteSpace(txtMotsCles.Text)) || (string.IsNullOrWhiteSpace(txtFichier.Text) && string.IsNullOrWhiteSpace(txtMotsCles.Text)))
             {
-                btnRechercher.Enabled = false;  // DÈsactiver le bouton
+                btnRechercher.Enabled = false;  // D√©sactiver le bouton
             }
             else
             {
@@ -488,10 +605,23 @@ namespace Doc_Recherche
 
         private void txtDossier1_TextChanged(object sender, EventArgs e)
         {
-            // VÈrifier si txtDossier1 et txtMotsCles ne sont pas vides ou null
-            if (string.IsNullOrWhiteSpace(txtDossier1.Text) || string.IsNullOrWhiteSpace(txtMotsCles.Text))
+            // V√©rifier si txtDossier1 et txtMotsCles ne sont pas vides ou null
+            if ((string.IsNullOrWhiteSpace(txtDossier1.Text) && string.IsNullOrWhiteSpace(txtMotsCles.Text)) || (string.IsNullOrWhiteSpace(txtFichier.Text) && string.IsNullOrWhiteSpace(txtMotsCles.Text)))
             {
-                btnRechercher.Enabled = false;  // DÈsactiver le bouton
+                btnRechercher.Enabled = false;  // D√©sactiver le bouton
+            }
+            else
+            {
+                btnRechercher.Enabled = true;   // Activer le bouton
+            }
+        }
+
+        private void txtFichier_TextChanged(object sender, EventArgs e)
+        {
+            // V√©rifier si txtDossier1 et txtMotsCles ne sont pas vides ou null
+            if ((string.IsNullOrWhiteSpace(txtDossier1.Text) && string.IsNullOrWhiteSpace(txtMotsCles.Text)) || (string.IsNullOrWhiteSpace(txtFichier.Text) && string.IsNullOrWhiteSpace(txtMotsCles.Text)))
+            {
+                btnRechercher.Enabled = false;  // D√©sactiver le bouton
             }
             else
             {
@@ -501,7 +631,7 @@ namespace Doc_Recherche
 
         private void menuItemOuvrirFichier_Click(object sender, EventArgs e)
         {
-            // Ouvrir le fichier en fonction de l'ÈlÈment sÈlectionnÈ dans la ListBox
+            // Ouvrir le fichier en fonction de l'√©l√©ment s√©lectionn√© dans la ListBox
             var fichier = lstResultats.SelectedItem.ToString();
             if (lstResultats.SelectedItem is string selectedFile && !string.IsNullOrEmpty(selectedFile))
             {
@@ -543,6 +673,18 @@ namespace Doc_Recherche
         private static Regex[] CompileKeywords(string[] motsCles)
         {
             return motsCles.Select(motCle => new Regex(motCle, RegexOptions.IgnoreCase | RegexOptions.Compiled)).ToArray();
+        }
+
+        private void btnParcourirFichier_Click(object sender, EventArgs e)
+        {
+            using (OpenFileDialog openFileDialog = new OpenFileDialog())
+            {
+                openFileDialog.Filter = "Fichiers texte (*.txt;*.4gl;*.html;*.htm)|*.txt;*.4gl;*.html;*.htm|Tous les fichiers (*.*)|*.*";
+                if (openFileDialog.ShowDialog() == DialogResult.OK)
+                {
+                    txtFichier.Text = openFileDialog.FileName;
+                }
+          }
         }
 #nullable enable
     }

@@ -31,7 +31,7 @@ namespace Doc_Recherche
         private ToolStripMenuItem menuItemOuvrirDossier;
         private static Dictionary<string, Regex> keywordCache = new Dictionary<string, Regex>();
         private ConcurrentBag<string> fichiersTrouves = new ConcurrentBag<string>();
-        private static readonly SemaphoreSlim semaphore = new SemaphoreSlim(8); // 🔹 Sémaphore partagé
+        private SemaphoreSlim semaphore = new SemaphoreSlim(8); // 🔹 Sémaphore partagé
 
 
         /// <summary>
@@ -64,7 +64,12 @@ namespace Doc_Recherche
             progressBarRecherche = new ProgressBar();
             labelPourcentage = new Label();
             BtnOuvrirDossier = new Button();
-            ((System.ComponentModel.ISupportInitialize)pictureBox1).BeginInit();
+            btnParcourirFichier = new Button();
+            txtFichier = new TextBox();
+            label5 = new Label();
+            semaphore = new SemaphoreSlim(8);
+
+            ((ISupportInitialize)pictureBox1).BeginInit();
             SuspendLayout();
             // 
             // txtDossier1
@@ -101,19 +106,20 @@ namespace Doc_Recherche
             // 
             // btnRechercher
             // 
-            btnRechercher.Location = new Point(822, 128);
+            btnRechercher.Enabled = false;
+            btnRechercher.Location = new Point(822, 148);
             btnRechercher.Margin = new Padding(4, 3, 4, 3);
             btnRechercher.Name = "btnRechercher";
             btnRechercher.Size = new Size(88, 27);
             btnRechercher.TabIndex = 4;
             btnRechercher.Text = "Rechercher";
             btnRechercher.UseVisualStyleBackColor = true;
-            btnRechercher.Enabled = false;
             btnRechercher.Click += btnRechercher_Click;
             // 
             // lstResultats
             // 
             lstResultats.FormattingEnabled = true;
+            lstResultats.HorizontalScrollbar = true;
             lstResultats.ItemHeight = 15;
             lstResultats.Location = new Point(24, 226);
             lstResultats.Margin = new Padding(4, 3, 4, 3);
@@ -193,7 +199,7 @@ namespace Doc_Recherche
             // 
             // progressBarRecherche
             // 
-            progressBarRecherche.Location = new Point(129, 175);
+            progressBarRecherche.Location = new Point(129, 188);
             progressBarRecherche.Margin = new Padding(4, 3, 4, 3);
             progressBarRecherche.Name = "progressBarRecherche";
             progressBarRecherche.Size = new Size(905, 27);
@@ -202,7 +208,7 @@ namespace Doc_Recherche
             // labelPourcentage
             // 
             labelPourcentage.AutoSize = true;
-            labelPourcentage.Location = new Point(550, 180);
+            labelPourcentage.Location = new Point(550, 193);
             labelPourcentage.Margin = new Padding(4, 0, 4, 0);
             labelPourcentage.Name = "labelPourcentage";
             labelPourcentage.Size = new Size(0, 15);
@@ -210,20 +216,51 @@ namespace Doc_Recherche
             // 
             // BtnOuvrirDossier
             // 
-            BtnOuvrirDossier.Location = new Point(935, 128);
+            BtnOuvrirDossier.Enabled = false;
+            BtnOuvrirDossier.Location = new Point(935, 146);
             BtnOuvrirDossier.Name = "BtnOuvrirDossier";
             BtnOuvrirDossier.Size = new Size(99, 27);
             BtnOuvrirDossier.TabIndex = 13;
             BtnOuvrirDossier.Text = "Ouvrir Dossier";
             BtnOuvrirDossier.UseVisualStyleBackColor = true;
             BtnOuvrirDossier.Click += BtnOuvrirDossier_Click;
-            BtnOuvrirDossier.Enabled = false;
+            // 
+            // btnParcourirFichier
+            // 
+            btnParcourirFichier.Location = new Point(1068, 113);
+            btnParcourirFichier.Name = "btnParcourirFichier";
+            btnParcourirFichier.Size = new Size(75, 23);
+            btnParcourirFichier.TabIndex = 14;
+            btnParcourirFichier.Text = "Parcourir";
+            btnParcourirFichier.UseVisualStyleBackColor = true;
+            btnParcourirFichier.Click += btnParcourirFichier_Click;
+            // 
+            // txtFichier
+            // 
+            txtFichier.Location = new Point(611, 113);
+            txtFichier.Name = "txtFichier";
+            txtFichier.Size = new Size(433, 23);
+            txtFichier.TabIndex = 15;
+            // 
+            // label5
+            // 
+            label5.AutoSize = true;
+            label5.Location = new Point(562, 116);
+            label5.Margin = new Padding(4, 0, 4, 0);
+            label5.Name = "label5";
+            label5.Size = new Size(42, 15);
+            label5.TabIndex = 16;
+            label5.Text = "Fichier";
+            // 
             // 
             // Form1
             // 
             AutoScaleDimensions = new SizeF(7F, 15F);
             AutoScaleMode = AutoScaleMode.Font;
             ClientSize = new Size(1241, 749);
+            Controls.Add(label5);
+            Controls.Add(txtFichier);
+            Controls.Add(btnParcourirFichier);
             Controls.Add(BtnOuvrirDossier);
             Controls.Add(labelPourcentage);
             Controls.Add(progressBarRecherche);
@@ -244,11 +281,14 @@ namespace Doc_Recherche
             Name = "Form1";
             Text = "Doc Recherche / VSW - Antunes Rodrigue";
             Load += Form1_Load;
-            ((System.ComponentModel.ISupportInitialize)pictureBox1).EndInit();
+            ((ISupportInitialize)pictureBox1).EndInit();
             ResumeLayout(false);
             PerformLayout();
         }
 
         private Button BtnOuvrirDossier;
+        private Button btnParcourirFichier;
+        private TextBox txtFichier;
+        private Label label5;
     }
 }
