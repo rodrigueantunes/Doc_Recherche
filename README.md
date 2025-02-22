@@ -27,6 +27,8 @@ Ce programme permet de rechercher des fichiers dans plusieurs dossiers et sous-d
 
 ## Utilisation
 
+![Doc_Recherche](https://github.com/user-attachments/assets/b3ac5780-4c8c-4050-b0cd-cfaefad7be1d)
+
 1. **Saisie des mots-clés** : Entrez un ou plusieurs mots-clés séparés par des virgules dans le champ "Mots-clés".
 2. **Sélection des dossiers** : Entrez les chemins des dossiers à rechercher dans les champs "Dossier 1", "Dossier 2" et "Dossier 3". Vous pouvez laisser ces champs vides si nécessaire.
 3. **Lancer la recherche** : Cliquez sur le bouton "Rechercher". La recherche s'effectue dans les dossiers spécifiés, et les fichiers trouvés sont affichés dans une `ListBox`.
